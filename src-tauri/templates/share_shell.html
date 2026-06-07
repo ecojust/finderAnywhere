@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Finder Anywhere Share</title>
+    <link rel="stylesheet" href="/assets/aplayer.css">
+    <style>{{styles}}</style>
+  </head>
+  <body{{body_class}}>
+    <div class="app-shell">
+      <header class="toolbar">
+       
+
+        <div class="brand">
+          <strong>Finder Anywhere</strong>
+          <span>{{root}}</span>
+        </div>
+
+        <div class="toolbar-actions">
+          <a class="pill" href="/">首页</a>
+        </div>
+      </header>
+
+      <main class="workspace">
+        {{sidebar}}
+
+        <section class="browser-panel">
+          <div class="browser-header">
+            {{breadcrumbs}}
+            <h1>{{title}}</h1>
+            <p>{{count}} 项</p>
+          </div>
+
+          <div class="content-area">{{content}}</div>
+        </section>
+
+        <aside class="preview-panel">
+          <div class="preview-toolbar">
+            <h2>{{preview_title}}</h2>
+            <p>{{preview_meta}}</p>
+            {{preview_tags}}
+            {{preview_actions}}
+          </div>
+
+          <div class="preview-body">{{preview_body}}</div>
+        </aside>
+      </main>
+    </div>
+
+    <script src="/assets/aplayer.js"></script>
+    {{script}}
+  </body>
+</html>
