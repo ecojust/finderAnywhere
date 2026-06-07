@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  oDesk:
+  finderAnywhere:
     permissions:
       contents: write
       actions: write
