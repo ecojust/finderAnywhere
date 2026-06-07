@@ -635,12 +635,12 @@ fn shared_styles() -> &'static str {
 *{box-sizing:border-box}html,body{width:100%;height:100%}body{margin:0;overflow:hidden;color:var(--text);background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;letter-spacing:0}
 a{color:inherit;text-decoration:none}button{font:inherit}.app-shell{display:grid;grid-template-rows:58px minmax(0,1fr);height:100%}.toolbar{display:grid;grid-template-columns:auto minmax(180px,1fr) auto;align-items:center;gap:14px;padding:10px 16px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.9);backdrop-filter:blur(18px)}
 .window-dots{display:flex;gap:7px}.dot{width:12px;height:12px;border-radius:50%;display:block}.red{background:#ff6257}.yellow{background:#ffbd2e}.green{background:#28c840}.brand{min-width:0}.brand strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.brand span{display:block;margin-top:2px;color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.toolbar-actions{display:flex;align-items:center;gap:8px}.pill{height:34px;display:inline-flex;align-items:center;padding:0 11px;border:1px solid #9bc5e0;border-radius:8px;color:var(--accent);background:var(--accent-soft);font-size:13px;font-weight:650}
-.workspace{min-height:0;display:grid;grid-template-columns:250px minmax(360px,1fr) minmax(310px,380px)}.sidebar,.browser-panel,.preview-panel{min-height:0;background:var(--panel)}.sidebar{padding:18px 12px;border-right:1px solid var(--line);background:#efebe4;overflow:auto}.sidebar-title{padding:0 10px 10px;color:var(--muted);font-size:12px;font-weight:700}.module-list{display:grid;gap:4px}.module-link{display:grid;grid-template-columns:38px minmax(0,1fr) auto;align-items:center;gap:8px;min-height:42px;padding:7px 9px;border-radius:8px}.module-link:hover,.module-link.active{background:rgba(255,255,255,.72);color:var(--accent)}.module-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.count-pill{min-width:24px;height:22px;display:inline-flex;align-items:center;justify-content:center;padding:0 7px;color:var(--muted);border-radius:999px;background:rgba(255,255,255,.72);font-size:12px}
+.workspace{min-height:0;display:grid;grid-template-columns:minmax(360px,1fr) minmax(310px,380px)}.browser-panel,.preview-panel{min-height:0;background:var(--panel)}
 .browser-panel{display:grid;grid-template-rows:auto minmax(0,1fr);background:var(--panel-soft)}.browser-header{padding:18px 24px 12px;border-bottom:1px solid var(--line)}.breadcrumbs{display:flex;align-items:center;gap:6px;min-width:0;white-space:nowrap;overflow:hidden}.crumb{max-width:180px;overflow:hidden;text-overflow:ellipsis;color:var(--muted);border-radius:6px;padding:4px 6px}.crumb:hover,.crumb.active{color:var(--text);background:#ece7df}.crumb-separator{color:#a39b90}.browser-header h1{margin:10px 0 0;font-size:24px;line-height:1.18}.browser-header p{margin:4px 0 0;color:var(--muted);font-size:13px}.content-area{min-height:0;padding:18px 20px 24px;overflow:auto}
 .module-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px}.module-card{min-width:0;display:grid;grid-template-columns:42px minmax(0,1fr);gap:12px;align-items:center;padding:14px;border:1px solid var(--line);border-radius:8px;background:var(--panel);box-shadow:0 6px 16px rgba(42,37,31,.06)}.module-card:hover{border-color:#9bc5e0;box-shadow:var(--shadow)}.shared-icon{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}.shared-icon svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}.shared-folder-icon svg{width:36px;height:36px;fill:#d8ad42;stroke:#9a6b12;stroke-width:1.4}.shared-file-icon{width:26px;height:26px;color:var(--accent);border:1px solid #9bc5e0;border-radius:6px;background:#f8fbfd}.shared-file-icon svg{width:16px;height:16px}.shared-image-icon{color:#0b78b6}.module-card-title,.file-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:650}.item-subtitle{display:block;margin-top:4px;color:var(--muted);font-size:13px}
 .file-table{min-width:680px;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--panel)}.file-row,.file-head{display:grid;grid-template-columns:minmax(220px,1fr) 150px 96px 92px;align-items:center;gap:12px;padding:0 14px;border-bottom:1px solid var(--line)}.file-head{height:36px;color:var(--muted);font-size:12px;font-weight:700;background:#f0ece5}.file-row{height:46px}.file-row:last-child{border-bottom:0}.file-row:hover,.file-row.selected{background:var(--accent-soft);color:var(--accent)}.file-primary{min-width:0;display:grid;grid-template-columns:38px minmax(0,1fr);align-items:center;gap:10px}.file-cell{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);font-size:13px}.preview-panel{display:grid;grid-template-rows:auto minmax(0,1fr);border-left:1px solid var(--line)}.preview-toolbar{padding:18px;border-bottom:1px solid var(--line)}.preview-toolbar h2{max-width:260px;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:18px}.preview-toolbar p{margin:4px 0 0;color:var(--muted);font-size:13px}.preview-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}.type-tag{display:inline-flex;align-items:center;min-height:24px;padding:0 8px;border:1px solid var(--line);border-radius:999px;background:#f7f5f0;color:var(--muted);font-size:12px}.preview-actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}.preview-action{height:30px;display:inline-flex;align-items:center;justify-content:center;padding:0 10px;border:1px solid #9bc5e0;border-radius:8px;color:var(--accent);background:var(--accent-soft);font-size:13px;font-weight:650;cursor:pointer}.preview-action.disabled{cursor:default;opacity:.45;color:var(--muted);border-color:var(--line);background:#f7f5f0}.preview-body{min-height:0;display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto;background:#f7f5f0}.preview-empty,.unsupported-preview{width:100%;min-height:220px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--muted);text-align:center}.empty-icon .shared-icon{transform:scale(1.35);margin-bottom:8px}.preview-empty strong,.unsupported-preview strong{font-size:14px;font-weight:650}.preview-body img{max-width:100%;max-height:100%;object-fit:contain;border-radius:8px;background:#fff;box-shadow:0 12px 32px rgba(42,37,31,.12);cursor:zoom-in}.preview-body video,.preview-body iframe{width:100%;min-height:420px;border:1px solid var(--line);border-radius:8px;background:#fff}.preview-body audio{width:100%}.music-preview{width:min(100%,460px);min-height:220px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:18px;color:var(--muted);text-align:center}.music-preview .shared-icon{width:42px;height:42px}.music-preview .shared-icon svg{width:26px;height:26px}.music-preview strong{color:var(--text);font-size:15px}.music-preview video,.music-preview audio{width:100%;min-height:auto}.music-preview video{min-height:260px}.preview-body pre{width:100%;height:100%;margin:0;padding:14px;overflow:auto;color:#222;border:1px solid var(--line);border-radius:8px;background:#fff;font:13px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre-wrap;word-break:break-word}.lightbox-open{overflow:hidden}.image-lightbox{position:fixed;inset:0;z-index:9999;display:none;grid-template-rows:64px minmax(0,1fr);color:#f6f3ed;background:rgba(17,18,20,.96);overscroll-behavior:none;touch-action:none}.lightbox-open .image-lightbox{display:grid}.lightbox-topbar{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 16px;border-bottom:1px solid rgba(255,255,255,.14)}.lightbox-topbar strong{display:block;max-width:min(720px,58vw);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:16px}.lightbox-topbar span{display:block;margin-top:4px;color:rgba(246,243,237,.68);font-size:13px}.lightbox-actions{display:flex;gap:8px}.lightbox-actions button{height:34px;padding:0 12px;border:1px solid rgba(255,255,255,.2);border-radius:8px;color:#f6f3ed;background:rgba(255,255,255,.08);cursor:pointer}.lightbox-actions button:disabled{cursor:default;opacity:.38}.lightbox-body{min-height:0;display:flex;align-items:center;justify-content:center;padding:18px;overflow:hidden}.lightbox-body img{max-width:100%;max-height:100%;object-fit:contain}
 .music-preview{width:min(100%,520px);align-items:stretch}.music-preview .empty-icon,.music-preview strong{align-self:center}.music-preview .aplayer-host,.music-preview .aplayer{width:100%}.music-preview .aplayer{margin:0;border:1px solid var(--line);border-radius:8px;box-shadow:0 12px 30px rgba(42,37,31,.1);text-align:left}.music-preview .aplayer-fallback[hidden]{display:none}
-@media(max-width:1100px){body{overflow:auto}.app-shell{height:auto;min-height:100%}.workspace{display:block}.sidebar{max-height:150px;border-right:0;border-bottom:1px solid var(--line)}.preview-panel{display:none}.has-preview .preview-panel{display:grid;min-height:520px;border-left:0;border-top:1px solid var(--line)}.content-area{overflow:visible}.toolbar{grid-template-columns:minmax(0,1fr) auto}.window-dots{display:none}.file-table{min-width:560px}}@media(max-width:760px){.toolbar{display:block}.toolbar-actions{margin-top:8px}.pill{max-width:100%;overflow:hidden}.browser-header{padding:14px}.content-area{padding:12px}.module-grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}.has-preview .preview-panel{min-height:460px}.preview-body video,.preview-body iframe{min-height:300px}}
+@media(max-width:1100px){body{overflow:auto}.app-shell{height:auto;min-height:100%}.workspace{display:block}.preview-panel{display:none}.has-preview .preview-panel{display:grid;min-height:520px;border-left:0;border-top:1px solid var(--line)}.content-area{overflow:visible}.toolbar{grid-template-columns:minmax(0,1fr) auto}.window-dots{display:none}.file-table{min-width:560px}}@media(max-width:760px){.toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:8px}.toolbar-actions{margin-left:auto}.pill{max-width:100%;overflow:hidden}.browser-header{padding:14px}.content-area{padding:12px}.module-grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}.has-preview .preview-panel{min-height:460px}.preview-body video,.preview-body iframe{min-height:300px}}
 "#
 }
 
@@ -796,30 +796,6 @@ fn format_size(size: Option<u64>) -> String {
     } else {
         format!("{value:.1} {}", units[index])
     }
-}
-
-fn render_sidebar(root: &Path, active_module: &str) -> String {
-    let mut html = String::from(
-        r#"<aside class="sidebar"><div class="sidebar-title">模块</div><div class="module-list">"#,
-    );
-    if let Ok(modules) = list_root_modules_inner(root) {
-        for module in modules {
-            let encoded = urlencoding::encode(&module.path);
-            let active = if module.path == active_module {
-                " active"
-            } else {
-                ""
-            };
-            html.push_str(&format!(
-                r#"<a class="module-link{active}" href="/?path={encoded}">{}<span class="module-name">{}</span><span class="count-pill">{}</span></a>"#,
-                shared_icon("directory"),
-                html_escape(&module.name),
-                module.children.unwrap_or(0)
-            ));
-        }
-    }
-    html.push_str("</div></aside>");
-    html
 }
 
 fn render_breadcrumbs(crumbs: &[Breadcrumb]) -> String {
@@ -1062,8 +1038,87 @@ fn render_share_script(
     )
 }
 
+fn render_share_audio_script(
+    entries: &[FileEntry],
+    selected_path: Option<&str>,
+    mime: Option<&str>,
+) -> String {
+    let is_audio = mime.is_some_and(|mime| {
+        mime.starts_with("audio/") || entries.iter().any(|e| e.path == selected_path.unwrap_or("") && is_music_player_entry(e))
+    });
+    if !is_audio {
+        return String::new();
+    }
+
+    let playlist = music_preview_items(entries);
+    let current_index = selected_path
+        .and_then(|path| playlist.iter().position(|item| item.path == path))
+        .unwrap_or(0);
+    let Ok(playlist_json) = serde_json::to_string(&playlist) else {
+        return String::new();
+    };
+    let selected_name = selected_path
+        .and_then(|path| {
+            entries
+                .iter()
+                .find(|e| e.path == path)
+                .map(|e| e.name.clone())
+        })
+        .unwrap_or_default();
+
+    format!(
+        r#"<script>
+(() => {{
+  const mobileQuery = window.matchMedia('(max-width: 760px)');
+  if (!mobileQuery.matches) return;
+  const playlist = {playlist_json};
+  if (!playlist.length) return;
+  const currentIndex = {current_index};
+  const overlay = document.createElement('div');
+  overlay.className = 'image-lightbox';
+  overlay.innerHTML = '<div class="lightbox-topbar"><div><strong id="lightboxAudioTitle">{selected_name}</strong></div><div class="lightbox-actions"><button type="button" data-action="close">关闭</button></div></div><div class="lightbox-body" style="align-items:stretch;padding:12px"><div class="music-preview" style="width:100%;min-height:0;gap:0"><div class="aplayer-host"></div><audio class="aplayer-fallback" controls preload="metadata"></audio></div></div>';
+  document.body.appendChild(overlay);
+  const host = overlay.querySelector('.aplayer-host');
+  const fallback = overlay.querySelector('.aplayer-fallback');
+  if (playlist[currentIndex]) {{
+    fallback.src = playlist[currentIndex].url;
+  }}
+  document.body.classList.add('lightbox-open');
+  try {{
+    new APlayer({{
+      container: host,
+      mutex: true,
+      preload: 'metadata',
+      listMaxHeight: '180px',
+      listmaxheight: '180px',
+      theme: '#1264a3',
+      audio: playlist,
+      index: currentIndex
+    }});
+    fallback.hidden = true;
+  }} catch (error) {{
+    fallback.hidden = false;
+  }}
+  overlay.addEventListener('click', (event) => {{
+    const action = event.target.closest('[data-action]')?.dataset.action;
+    if (action === 'close') {{
+      document.body.classList.remove('lightbox-open');
+      overlay.remove();
+    }}
+  }});
+  document.addEventListener('keydown', (event) => {{
+    if (!document.body.classList.contains('lightbox-open')) return;
+    if (event.key === 'Escape') {{
+      document.body.classList.remove('lightbox-open');
+      overlay.remove();
+    }}
+  }});
+}})();
+</script>"#
+    )
+}
+
 fn render_share_shell(
-    root: &Path,
     listing: &DirectoryListing,
     content: &str,
     preview_title: &str,
@@ -1072,7 +1127,6 @@ fn render_share_shell(
     preview_actions: &str,
     preview_body: &str,
     script: &str,
-    active_module: &str,
 ) -> Vec<u8> {
     let body_class = if preview_tags.is_empty() {
         ""
@@ -1083,7 +1137,6 @@ fn render_share_shell(
         .replace("{{styles}}", shared_styles())
         .replace("{{body_class}}", body_class)
         .replace("{{root}}", &html_escape(&listing.root))
-        .replace("{{sidebar}}", &render_sidebar(root, active_module))
         .replace("{{breadcrumbs}}", &render_breadcrumbs(&listing.breadcrumbs))
         .replace("{{title}}", &html_escape(&listing.name))
         .replace("{{count}}", &listing.entries.len().to_string())
@@ -1109,7 +1162,6 @@ fn shared_page(root: &Path, path: Option<String>) -> Vec<u8> {
         }
     };
 
-    let active_module = listing.path.split('/').next().unwrap_or("").to_string();
     let content = if listing.entries.is_empty() {
         shared_empty_state("没有可显示的文件", "directory")
     } else {
@@ -1117,7 +1169,6 @@ fn shared_page(root: &Path, path: Option<String>) -> Vec<u8> {
     };
 
     render_share_shell(
-        root,
         &listing,
         &content,
         "预览",
@@ -1126,7 +1177,6 @@ fn shared_page(root: &Path, path: Option<String>) -> Vec<u8> {
         "",
         &shared_empty_state("选择文件", "image"),
         "",
-        &active_module,
     )
 }
 
@@ -1223,7 +1273,6 @@ fn shared_preview(root: &Path, rel_path: String) -> Vec<u8> {
             )
         }
     };
-    let active_module = rel_path.split('/').next().unwrap_or("").to_string();
     let preview_name = full_path
         .file_name()
         .and_then(|name| name.to_str())
@@ -1238,9 +1287,12 @@ fn shared_preview(root: &Path, rel_path: String) -> Vec<u8> {
     ]);
     let preview_actions =
         render_image_preview_actions(&listing.entries, Some(&rel_path), Some(&mime));
-    let script = render_share_script(&listing.entries, Some(&rel_path), Some(&mime));
+    let script = format!(
+        "{}{}",
+        render_share_script(&listing.entries, Some(&rel_path), Some(&mime)),
+        render_share_audio_script(&listing.entries, Some(&rel_path), Some(&mime))
+    );
     render_share_shell(
-        root,
         &listing,
         &content,
         preview_name,
@@ -1249,7 +1301,6 @@ fn shared_preview(root: &Path, rel_path: String) -> Vec<u8> {
         &preview_actions,
         &preview_body,
         &script,
-        &active_module,
     )
 }
 

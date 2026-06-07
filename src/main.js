@@ -4,7 +4,7 @@ import 'aplayer/dist/APlayer.min.css';
 
 const state = {
   root: '',
-  modules: [],
+
   currentPath: '',
   entries: [],
   selectedPath: '',
@@ -32,7 +32,7 @@ let copyFeedbackTimer = 0;
 let previewMusicPlayer = null;
 
 const dom = {
-  moduleList: document.getElementById('moduleList'),
+
   breadcrumbs: document.getElementById('breadcrumbs'),
   contentArea: document.getElementById('contentArea'),
   folderTitle: document.getElementById('folderTitle'),
@@ -300,12 +300,9 @@ async function toggleSharePortLock() {
 }
 
 async function loadModules() {
-  const data = await invoke('list_modules', { root: state.root || null });
-  state.root = data.root;
-  localStorage.setItem('finder-anywhere-root', state.root);
-  dom.rootName.textContent = basename(state.root);
-  state.modules = data.modules;
-  renderModules();
+  if (state.root) {
+    dom.rootName.textContent = basename(state.root);
+  }
 }
 
 async function openPath(path, options = {}) {
@@ -331,7 +328,6 @@ async function openPath(path, options = {}) {
     state.entries = data.entries;
     state.entryByPath = new Map(data.entries.map((entry) => [entry.path, entry]));
     renderBreadcrumbs(data.breadcrumbs);
-    renderModules();
     renderContent(data);
     updateNavButtons();
   } catch (error) {
@@ -352,28 +348,6 @@ function renderError(message) {
       <strong>${escapeHtml(message)}</strong>
     </div>
   `;
-}
-
-function renderModules() {
-  if (!state.modules.length) {
-    dom.moduleList.innerHTML = '<div class="item-subtitle">暂无模块</div>';
-    return;
-  }
-
-  const activeModule = state.currentPath.split('/')[0] || '';
-  dom.moduleList.innerHTML = state.modules
-    .map((module) => `
-      <button class="module-link ${activeModule === module.path ? 'active' : ''}" type="button" data-path="${attrPath(module.path)}" title="${escapeHtml(module.name)}">
-        <span class="folder-badge">${icons.folder}</span>
-        <span class="module-name">${escapeHtml(module.name)}</span>
-        <span class="count-pill">${module.children ?? 0}</span>
-      </button>
-    `)
-    .join('');
-
-  dom.moduleList.querySelectorAll('.module-link').forEach((button) => {
-    button.addEventListener('click', () => openPath(pathFromAttr(button.dataset.path)));
-  });
 }
 
 function renderBreadcrumbs(crumbs) {
@@ -552,8 +526,10 @@ function selectEntry(entry) {
   state.selectedPath = entry.path;
   updateSelectedRows(previousPath, entry.path);
   renderPreview(entry);
-  if (isImageEntry(entry) && shouldAutoFullscreenPreview() && !state.fullscreenOpen) {
-    openFullscreenPreview(entry);
+  if (shouldAutoFullscreenPreview() && !state.fullscreenOpen) {
+    if (isImageEntry(entry) || isMusicPlayerEntry(entry)) {
+      openFullscreenPreview(entry);
+    }
   }
 }
 
@@ -651,11 +627,12 @@ function ensureFullscreenPreview() {
 }
 
 function openFullscreenPreview(entry = selectedEntry()) {
-  if (!isImageEntry(entry)) return;
+  if (!isImageEntry(entry) && !isMusicPlayerEntry(entry)) return;
   state.fullscreenOpen = true;
   lockPageScroll();
   document.body.classList.add('fullscreen-open');
   ensureFullscreenPreview();
+  destroyPreviewMusicPlayer();
   renderFullscreenPreview(entry);
 }
 
@@ -673,15 +650,28 @@ function destroyPreviewMusicPlayer() {
 }
 
 function renderFullscreenPreview(entry) {
-  if (!isImageEntry(entry)) return;
+  if (!isImageEntry(entry) && !isMusicPlayerEntry(entry)) return;
   const overlay = ensureFullscreenPreview();
-  const images = imagePreviewEntries();
-  const currentIndex = images.findIndex((item) => item.path === entry.path);
-  const positionText = currentIndex >= 0 ? ` · ${currentIndex + 1}/${images.length}` : '';
+  const isAudio = isMusicPlayerEntry(entry);
+
   overlay.querySelector('#fullscreenPreviewTitle').textContent = entry.name;
-  overlay.querySelector('#fullscreenPreviewMeta').textContent = `${typeLabel(entry)} · ${formatBytes(entry.size)}${positionText}`;
+  overlay.querySelector('#fullscreenPreviewMeta').textContent = `${typeLabel(entry)} · ${formatBytes(entry.size)}`;
+
+  overlay.querySelectorAll('[data-fullscreen-action="previous"], [data-fullscreen-action="next"]').forEach((b) => {
+    b.style.display = isAudio ? 'none' : '';
+  });
+
+  if (isImageEntry(entry)) {
+    const images = imagePreviewEntries();
+    const currentIndex = images.findIndex((item) => item.path === entry.path);
+    if (currentIndex >= 0) {
+      const meta = overlay.querySelector('#fullscreenPreviewMeta');
+      meta.textContent += ` · ${currentIndex + 1}/${images.length}`;
+    }
+    updateFullscreenNavButtons();
+  }
+
   renderPreviewBody(entry, overlay.querySelector('#fullscreenPreviewBody'), { fullscreen: true });
-  updateFullscreenNavButtons();
 }
 
 function bindPreviewKeyboard() {
@@ -717,11 +707,12 @@ function renderPreview(entry) {
 
   dom.previewTitle.textContent = entry.name;
   dom.previewMeta.textContent = `${typeLabel(entry)} · ${formatBytes(entry.size)}`;
+  const showFullscreen = isImageEntry(entry) || isMusicPlayerEntry(entry);
   dom.previewActions.innerHTML = `
     <button class="icon-button" type="button" id="openPreviewButton" aria-label="新窗口打开" title="新窗口打开">${icons.open}</button>
     ${
-      isImageEntry(entry)
-        ? `<button class="icon-button" type="button" id="fullscreenPreviewButton" aria-label="图片全屏预览" title="图片全屏预览">${icons.fullscreen}</button>`
+      showFullscreen
+        ? `<button class="icon-button" type="button" id="fullscreenPreviewButton" aria-label="全屏预览" title="全屏预览">${icons.fullscreen}</button>`
         : ''
     }
   `;
@@ -736,7 +727,7 @@ function renderPreview(entry) {
 
   renderPreviewBody(entry, dom.previewBody);
   if (state.fullscreenOpen) {
-    if (isImageEntry(entry)) {
+    if (isImageEntry(entry) || isMusicPlayerEntry(entry)) {
       renderFullscreenPreview(entry);
     } else {
       closeFullscreenPreview();
