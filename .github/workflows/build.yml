@@ -1,0 +1,76 @@
+name: Build and release
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  oDesk:
+    permissions:
+      contents: write
+      actions: write
+      attestations: write
+      deployments: write
+      packages: write
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: "macos-15" # Apple Silicon (M1 and later).
+            rust_target: "aarch64-apple-darwin"
+            args: "--target aarch64-apple-darwin"
+          - platform: "macos-15-intel" # Intel based Macs.
+            rust_target: "x86_64-apple-darwin"
+            args: "--target x86_64-apple-darwin"
+          - platform: "windows-latest"
+            rust_target: ""
+            args: ""
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      # Checkout repository
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Rust setup
+      - name: Rust setup
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Rust target
+        if: matrix.rust_target != ''
+        run: rustup target add ${{ matrix.rust_target }}
+
+      # Rust cache
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+
+      # Sync node version and setup cache
+      - name: Sync node version and setup cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: "lts/*"
+
+      # Install yarn globally
+      - name: Install yarn
+        run: npm install -g yarn
+
+      # Install frontend dependencies
+      - name: Install frontend dependencies
+        run: yarn install
+
+      # Build the app
+      - name: Build the app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: v-__VERSION__
+          releaseName: "oDesk  v__VERSION__"
+          releaseBody: "See the assets to download and install this version."
+          releaseDraft: true
+          prerelease: false
+          tauriScript: yarn tauri
+          assetNamePattern: "[name]_[version]_[platform]_[arch][ext]"
+          args: ${{ matrix.args }}

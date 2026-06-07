@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tauri dev",
+    "build-info": "node scripts/update-build-info.js",
+    "dev": "yarn run build-info && tauri dev",
     "build": "tauri build",
     "dev:ui": "vite --host 127.0.0.1 --port 1420",
     "build:ui": "vite build",
