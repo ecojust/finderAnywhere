@@ -113,8 +113,15 @@ const INTERNAL_ROOT_DIRS: &[&str] = &[
 ];
 
 fn default_root() -> PathBuf {
-    std::env::current_dir()
-        .unwrap_or_else(|_| dirs::home_dir().unwrap_or_else(|| PathBuf::from("/")))
+    std::env::current_dir().unwrap_or_else(|_| {
+        dirs::home_dir().unwrap_or_else(|| {
+            if cfg!(target_os = "windows") {
+                PathBuf::from("C:\\")
+            } else {
+                PathBuf::from("/")
+            }
+        })
+    })
 }
 
 fn app_config_path() -> PathBuf {
@@ -290,7 +297,7 @@ fn is_resizable_image(path: &Path, mime: &str) -> bool {
             .unwrap_or("")
             .to_ascii_lowercase()
             .as_str(),
-        "bmp" | "heic" | "heif" | "jpeg" | "jpg" | "png" | "tif" | "tiff" | "webp"
+        "bmp" | "jpeg" | "jpg" | "png" | "tif" | "tiff" | "webp"
     )
 }
 
@@ -447,13 +454,33 @@ fn is_private_ipv4(address: Ipv4Addr) -> bool {
 fn lan_addresses() -> Vec<Ipv4Addr> {
     let mut addresses = Vec::new();
 
-    if let Ok(output) = Command::new("/sbin/ifconfig").output() {
-        let text = String::from_utf8_lossy(&output.stdout);
-        for token in text.split_whitespace().collect::<Vec<_>>().windows(2) {
-            if token[0] == "inet" {
-                if let Ok(address) = token[1].parse::<Ipv4Addr>() {
-                    if is_private_ipv4(address) && !addresses.contains(&address) {
-                        addresses.push(address);
+    #[cfg(target_os = "macos")]
+    {
+        if let Ok(output) = Command::new("/sbin/ifconfig").output() {
+            let text = String::from_utf8_lossy(&output.stdout);
+            for token in text.split_whitespace().collect::<Vec<_>>().windows(2) {
+                if token[0] == "inet" {
+                    if let Ok(address) = token[1].parse::<Ipv4Addr>() {
+                        if is_private_ipv4(address) && !addresses.contains(&address) {
+                            addresses.push(address);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        if let Ok(output) = Command::new("ipconfig").output() {
+            let text = String::from_utf8_lossy(&output.stdout);
+            for line in text.lines() {
+                if let Some(pos) = line.find(':') {
+                    let after_colon = line[pos + 1..].trim();
+                    if let Ok(address) = after_colon.parse::<Ipv4Addr>() {
+                        if is_private_ipv4(address) && !addresses.contains(&address) {
+                            addresses.push(address);
+                        }
                     }
                 }
             }
@@ -1392,25 +1419,11 @@ fn ensure_preview(path: &Path, size: u32) -> Result<PathBuf, String> {
     }
 
     let temp_path = cache_path.with_extension(format!("{}.tmp.jpg", std::process::id()));
-    let status = Command::new("/usr/bin/sips")
-        .arg("--resampleHeightWidthMax")
-        .arg(size.to_string())
-        .arg("--setProperty")
-        .arg("format")
-        .arg("jpeg")
-        .arg("--setProperty")
-        .arg("formatOptions")
-        .arg("78")
-        .arg(path)
-        .arg("--out")
-        .arg(&temp_path)
-        .status()
-        .map_err(|error| error.to_string())?;
-
-    if !status.success() {
-        let _ = fs::remove_file(&temp_path);
-        return Err("Preview generation failed.".into());
-    }
+    let img = image::open(path).map_err(|e| format!("Image open failed: {e}"))?;
+    let resized = img.thumbnail(size, size);
+    resized
+        .save(&temp_path)
+        .map_err(|e| format!("Image save failed: {e}"))?;
 
     fs::rename(&temp_path, &cache_path).map_err(|error| error.to_string())?;
     Ok(cache_path)
