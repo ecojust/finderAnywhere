@@ -116,6 +116,21 @@ button {
   background: var(--accent-soft);
 }
 
+.icon-button.active.ocserver-active {
+  color: #1a8a3f;
+  border-color: #6ecf8a;
+  background: #e8f5ee;
+}
+
+.icon-button.loading svg {
+  animation: ocserver-spin 1s linear infinite;
+}
+
+@keyframes ocserver-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 .icon-button:disabled {
   cursor: default;
   opacity: 0.38;

@@ -10,7 +10,8 @@
     "dev:ui": "vite --host 127.0.0.1 --port 1420",
     "build:ui": "vite build",
     "preview": "vite preview",
-    "logo": "tauri icon ./logo.png"
+    "logo": "tauri icon ./logo.png",
+    "sidecar": "node scripts/copy-sidecar.js"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0",

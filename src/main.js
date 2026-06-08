@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import APlayer from 'aplayer';
 import 'aplayer/dist/APlayer.min.css';
 
@@ -18,7 +19,10 @@ const state = {
   previewUrlByPath: new Map(),
   fullscreenOpen: false,
   backStack: [],
-  forwardStack: []
+  forwardStack: [],
+  ocserverRunning: false,
+  ocserverLoading: false,
+  ocserverUrl: ''
 };
 
 const TEXT_PREVIEW_LIMIT = 2 * 1024 * 1024;
@@ -50,7 +54,8 @@ const dom = {
   refreshButton: document.getElementById('refreshButton'),
   portLockButton: document.getElementById('portLockButton'),
   listViewButton: document.getElementById('listViewButton'),
-  gridViewButton: document.getElementById('gridViewButton')
+  gridViewButton: document.getElementById('gridViewButton'),
+  ocserverButton: document.getElementById('ocserverButton')
 };
 
 const icons = {
@@ -297,6 +302,55 @@ async function toggleSharePortLock() {
   state.sharePortLocked = Boolean(config.sharePortLocked);
   updatePortLockButton();
   await loadShareInfo();
+}
+
+async function toggleOcserver() {
+  if (state.ocserverLoading) return;
+
+  if (state.ocserverRunning) {
+    try {
+      await invoke('stop_ocserver');
+      state.ocserverRunning = false;
+      state.ocserverUrl = '';
+    } catch (error) {
+      console.error('停止 opencode 服务失败:', error);
+    }
+    updateOcserverButton();
+    return;
+  }
+
+  const rootPath = localStorage.getItem('finder-anywhere-root') || state.root || '';
+  if (!rootPath) {
+    dom.ocserverButton.title = '请先选择根目录';
+    return;
+  }
+
+  state.ocserverLoading = true;
+  dom.ocserverButton.title = '启动中...';
+  dom.ocserverButton.classList.add('loading');
+
+  try {
+    const url = await invoke('start_ocserver', { path: rootPath });
+    state.ocserverRunning = true;
+    state.ocserverUrl = url;
+  } catch (error) {
+    state.ocserverRunning = false;
+    state.ocserverUrl = '';
+    console.error('opencode 服务启动失败:', error);
+  }
+
+  state.ocserverLoading = false;
+  dom.ocserverButton.classList.remove('loading');
+  updateOcserverButton();
+}
+
+function updateOcserverButton() {
+  dom.ocserverButton.classList.toggle('active', state.ocserverRunning);
+  dom.ocserverButton.classList.toggle('ocserver-active', state.ocserverRunning);
+  dom.ocserverButton.setAttribute('aria-label', state.ocserverRunning ? '停止 opencode 服务' : '启动 opencode 服务');
+  dom.ocserverButton.title = state.ocserverRunning
+    ? `点击停止 opencode 服务 (${state.ocserverUrl})`
+    : '启动 opencode 服务';
 }
 
 async function loadModules() {
@@ -897,6 +951,8 @@ function bindToolbar() {
 
   dom.listViewButton.addEventListener('click', () => setView('list'));
   dom.gridViewButton.addEventListener('click', () => setView('grid'));
+
+  dom.ocserverButton.addEventListener('click', toggleOcserver);
 }
 
 function setView(view) {
@@ -939,6 +995,7 @@ async function init() {
   await loadModules();
   await loadShareInfo();
   await openPath('', { pushHistory: false });
+  updateOcserverButton();
 }
 
 init().catch((error) => {

@@ -5,13 +5,14 @@ use std::{
     io::{self, Read, Seek, SeekFrom, Write},
     net::{Ipv4Addr, SocketAddr, TcpListener, TcpStream, UdpSocket},
     path::{Component, Path, PathBuf},
-    process::Command,
+    process::Command as StdCommand,
     sync::{Arc, Mutex},
     thread,
     time::UNIX_EPOCH,
 };
-use tauri::State;
+use tauri::{Manager, State};
 use tauri_plugin_dialog::DialogExt;
+use tauri_plugin_shell::ShellExt;
 
 const SHARE_SHELL_TEMPLATE: &str = include_str!("../templates/share_shell.html");
 const APLAYER_CSS: &[u8] = include_bytes!("../vendor/aplayer/APlayer.min.css");
@@ -23,6 +24,8 @@ struct AppState {
     fallback_root: PathBuf,
     share_root: Arc<Mutex<PathBuf>>,
     share_port: Arc<Mutex<Option<u16>>>,
+    ocserver_child: Arc<Mutex<Option<tauri_plugin_shell::process::CommandChild>>>,
+    ocserver_port: Arc<Mutex<Option<u16>>>,
 }
 
 #[derive(Serialize)]
@@ -456,7 +459,7 @@ fn lan_addresses() -> Vec<Ipv4Addr> {
 
     #[cfg(target_os = "macos")]
     {
-        if let Ok(output) = Command::new("/sbin/ifconfig").output() {
+        if let Ok(output) = StdCommand::new("/sbin/ifconfig").output() {
             let text = String::from_utf8_lossy(&output.stdout);
             for token in text.split_whitespace().collect::<Vec<_>>().windows(2) {
                 if token[0] == "inet" {
@@ -472,7 +475,7 @@ fn lan_addresses() -> Vec<Ipv4Addr> {
 
     #[cfg(target_os = "windows")]
     {
-        if let Ok(output) = Command::new("ipconfig").output() {
+        if let Ok(output) = StdCommand::new("ipconfig").output() {
             let text = String::from_utf8_lossy(&output.stdout);
             for line in text.lines() {
                 if let Some(pos) = line.find(':') {
@@ -1604,6 +1607,143 @@ async fn choose_root(app: tauri::AppHandle) -> Result<Option<String>, String> {
         .transpose()
 }
 
+fn open_oc_window(app: &tauri::AppHandle, url: &str) -> Result<(), String> {
+    use tauri::WebviewWindowBuilder;
+
+    if let Some(window) = app.get_webview_window("opencode-chat") {
+        let _ = window.show();
+        let _ = window.set_focus();
+        return Ok(());
+    }
+
+    let parsed =
+        url::Url::parse(url).map_err(|e| format!("URL 解析失败：{e}"))?;
+
+    WebviewWindowBuilder::new(app, "opencode-chat", tauri::WebviewUrl::External(parsed))
+        .title("OpenCode")
+        .inner_size(960.0, 720.0)
+        .center()
+        .build()
+        .map_err(|e| format!("窗口创建失败：{e}"))?;
+
+    Ok(())
+}
+
+#[tauri::command]
+async fn start_ocserver(
+    path: String,
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<String, String> {
+    {
+        let guard = state.ocserver_port.lock().map_err(|e| e.to_string())?;
+        if let Some(port) = *guard {
+            let url = format!("http://127.0.0.1:{port}");
+            open_oc_window(&app, &url)?;
+            return Ok(url);
+        }
+    }
+
+    let port = {
+        let listener =
+            TcpListener::bind(("127.0.0.1", 0)).map_err(|e| format!("端口分配失败：{e}"))?;
+        listener.local_addr().map_err(|e| e.to_string())?.port()
+    };
+
+    let cmd = app
+        .shell()
+        .sidecar("opencode")
+        .map_err(|e| format!("sidecar 加载失败：{e}"))?
+        .args(["serve", "--port", &port.to_string()])
+        .current_dir(&path);
+
+    let (mut rx, child) = cmd.spawn().map_err(|e| format!("启动失败：{e}"))?;
+
+    if let Ok(mut guard) = state.ocserver_child.lock() {
+        *guard = Some(child);
+    }
+    if let Ok(mut guard) = state.ocserver_port.lock() {
+        *guard = Some(port);
+    }
+
+    let url = format!("http://127.0.0.1:{port}");
+
+    // Wait for server to be ready before opening the window
+    let mut ready = false;
+    for _ in 0..30 {
+        if tokio::net::TcpStream::connect(("127.0.0.1", port))
+            .await
+            .is_ok()
+        {
+            ready = true;
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    }
+
+    if !ready {
+        // Kill the child if we started it
+        if let Ok(mut guard) = state.ocserver_child.lock() {
+            if let Some(child) = guard.take() {
+                let _ = child.kill();
+            }
+        }
+        if let Ok(mut guard) = state.ocserver_port.lock() {
+            *guard = None;
+        }
+        return Err("opencode 服务启动超时".into());
+    }
+
+    // Spawn process-exit watcher
+    let app_clone = app.clone();
+    tauri::async_runtime::spawn(async move {
+        use tauri_plugin_shell::process::CommandEvent;
+        loop {
+            match rx.recv().await {
+                Some(CommandEvent::Terminated(_)) | Some(CommandEvent::Error(_)) | None => break,
+                _ => {}
+            }
+        }
+        if let Some(window) = app_clone.get_webview_window("opencode-chat") {
+            let _ = window.close();
+        }
+        if let Ok(mut guard) = app_clone.state::<AppState>().ocserver_child.lock() {
+            *guard = None;
+        }
+        if let Ok(mut guard) = app_clone.state::<AppState>().ocserver_port.lock() {
+            *guard = None;
+        }
+    });
+
+    open_oc_window(&app, &url)?;
+    Ok(url)
+}
+
+#[tauri::command]
+async fn stop_ocserver(
+    state: State<'_, AppState>,
+    app: tauri::AppHandle,
+) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("opencode-chat") {
+        let _ = window.close();
+    }
+
+    let child = {
+        let mut guard = state.ocserver_child.lock().map_err(|e| e.to_string())?;
+        guard.take()
+    };
+
+    if let Some(child) = child {
+        child.kill().map_err(|e| format!("停止失败：{e}"))?;
+    }
+
+    if let Ok(mut guard) = state.ocserver_port.lock() {
+        *guard = None;
+    }
+
+    Ok(())
+}
+
 pub fn run() {
     let fallback_root = default_root();
     tauri::Builder::default()
@@ -1613,6 +1753,8 @@ pub fn run() {
             fallback_root: fallback_root.clone(),
             share_root: Arc::new(Mutex::new(fallback_root)),
             share_port: Arc::new(Mutex::new(None)),
+            ocserver_child: Arc::new(Mutex::new(None)),
+            ocserver_port: Arc::new(Mutex::new(None)),
         })
         .invoke_handler(tauri::generate_handler![
             choose_root,
@@ -1623,7 +1765,9 @@ pub fn run() {
             preview_url,
             open_external,
             app_config,
-            set_share_port_config
+            set_share_port_config,
+            start_ocserver,
+            stop_ocserver
         ])
         .run(tauri::generate_context!())
         .expect("error while running Finder Anywhere");
