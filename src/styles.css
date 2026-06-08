@@ -887,6 +887,163 @@ button {
   }
 }
 
+/* === Opencode Dialog === */
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.35);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+.dialog-overlay.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+.dialog-panel {
+  width: min(540px, 92vw);
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border-radius: 12px;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.25);
+  overflow: hidden;
+}
+.dialog-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.dialog-logo {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  color: var(--text);
+}
+.dialog-header h2 {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.2;
+}
+.dialog-version {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+.dialog-close {
+  margin-left: auto;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  font-size: 18px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.dialog-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 24px 20px;
+}
+.dialog-section {
+  margin-bottom: 20px;
+}
+.dialog-section h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 650;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+}
+.status-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #bbb;
+}
+.status-dot.active {
+  background: #1a8a3f;
+  box-shadow: 0 0 6px rgba(26,138,63,0.5);
+}
+.server-url {
+  padding: 2px 6px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--panel-soft);
+  font-size: 12px;
+  color: var(--muted);
+}
+.dialog-section .pill {
+  height: 28px;
+  font-size: 12px;
+  padding: 0 10px;
+}
+.pill.danger {
+  color: #c23030;
+  border-color: #e8b4b4;
+  background: #fdf0f0;
+}
+.model-list {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.model-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.model-item:hover {
+  background: var(--accent-soft);
+}
+.model-item + .model-item {
+  border-top: 1px solid var(--line);
+}
+.model-item input {
+  accent-color: var(--accent);
+}
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0;
+}
+
 @media (max-width: 1100px) {
   .preview-panel {
     display: none;

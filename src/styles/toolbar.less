@@ -1,0 +1,143 @@
+.toolbar {
+  display: grid;
+  grid-template-columns: auto auto minmax(180px, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 16px;
+  border-bottom: 1px solid @line;
+  background: rgba(255,255,255,0.88);
+  backdrop-filter: blur(18px);
+}
+
+.nav-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.breadcrumbs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.crumb {
+  max-width: 190px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: @muted;
+  border: 0;
+  background: transparent;
+  border-radius: 6px;
+  padding: 5px 7px;
+  font-size: @font-size-base;
+  transition: background @transition, color @transition;
+
+  &:hover, &.active { color: @text; background: #ece7df; }
+}
+
+.crumb-separator {
+  color: #a39b90;
+}
+
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.share-addresses {
+  max-width: 280px;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  padding: 0 10px;
+  color: @muted;
+  border: 1px solid @line;
+  border-radius: 8px;
+  background: @panel;
+  font-size: @font-size-sm;
+  cursor: pointer;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  transition: border-color @transition;
+
+  &:hover { border-color: #9bc5e0; }
+}
+
+.search-box {
+  width: min(260px, 26vw);
+  height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  color: @muted;
+  border: 1px solid @line;
+  border-radius: 8px;
+  background: @panel;
+
+  input {
+    width: 100%;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    color: @text;
+    background: transparent;
+  }
+
+  svg {
+    flex-shrink: 0;
+  }
+}
+
+.segmented {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid @line;
+  border-radius: 8px;
+  background: #ece7df;
+
+  .icon-button {
+    width: 30px;
+    height: 28px;
+    border-color: transparent;
+    background: transparent;
+
+    &.active {
+      border-color: @line;
+      background: @panel;
+    }
+  }
+}
+
+.ocserver-btn {
+  .oc-icon {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+@media (max-width: 1100px) {
+  .search-box { width: 210px; }
+  .share-addresses { max-width: 170px; }
+}
+
+@media (max-width: 760px) {
+  .toolbar {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 10px;
+  }
+  .breadcrumbs { order: 2; grid-column: 1 / -1; }
+  .share-addresses { order: 3; grid-column: 1 / -1; max-width: none; width: 100%; }
+  .search-box { width: 150px; }
+  .workspace { display: block; }
+  .content-area { overflow: visible; }
+  .file-table { min-width: 560px; }
+}

@@ -1,6 +1,6 @@
 [package]
 name = "finder-anywhere"
-version = "0.1.0"
+version = "0.2.0"
 description = "Finder Anywhere"
 authors = ["Finder Anywhere"]
 edition = "2021"
@@ -24,6 +24,5 @@ tauri = { version = "2.0.0", features = ["protocol-asset"] }
 tauri-plugin-dialog = "2.0.0"
 tauri-plugin-shell = "2.0.0"
 tokio = { version = "1", features = ["net", "time"] }
-url = "2"
 urlencoding = "2.1"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "bmp", "tiff", "webp"] }

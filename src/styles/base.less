@@ -1,0 +1,134 @@
+@bg: #f4f2ee;
+@panel: #ffffff;
+@panel-soft: #faf9f6;
+@text: #252423;
+@muted: #6f6a64;
+@line: #ddd8cf;
+@accent: #1264a3;
+@accent-soft: #e4f0f8;
+@shadow: 0 16px 40px rgba(42, 37, 31, 0.12);
+@font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+@font-size-sm: 12px;
+@font-size-base: 13px;
+@transition: 0.15s ease;
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body, #app {
+  height: 100%;
+  overflow: hidden;
+  font-family: @font-family;
+  font-size: @font-size-base;
+  color: @text;
+  background: @bg;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: @line; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: @muted; }
+
+a { color: @accent; text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+button {
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+}
+
+input {
+  font: inherit;
+}
+
+svg {
+  width: 1em;
+  height: 1em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.hint { color: @muted; font-size: @font-size-sm; }
+
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  color: @text;
+  border: 1px solid @line;
+  border-radius: 8px;
+  background: @panel;
+  transition: background @transition, border-color @transition, color @transition;
+
+  &:hover, &.active {
+    color: @accent;
+    border-color: #9bc5e0;
+    background: @accent-soft;
+  }
+
+  &.active.ocserver-active {
+    color: #1a8a3f;
+    border-color: #6ecf8a;
+    background: #e8f5ee;
+  }
+
+  &.loading svg {
+    animation: ocserver-spin 1s linear infinite;
+  }
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.38;
+  }
+
+  svg {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+@keyframes ocserver-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.choose-button {
+  max-width: 220px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 11px;
+  color: @accent;
+  border: 1px solid #9bc5e0;
+  border-radius: 8px;
+  background: @accent-soft;
+  font-size: @font-size-base;
+  font-weight: 650;
+  transition: background @transition, border-color @transition;
+
+  &:hover {
+    background: darken(@accent-soft, 3%);
+  }
+
+  span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  svg {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+  }
+}
