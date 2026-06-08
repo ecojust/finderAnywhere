@@ -92,6 +92,7 @@
   width: 100%;
   min-height: 240px;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   position: relative;
@@ -99,6 +100,32 @@
   &.loading .loading-bar {
     display: block;
   }
+}
+
+.preview-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.preview-spinner {
+  display: block;
+  width: 32px;
+  height: 32px;
+  border: 3px solid @line;
+  border-top-color: @accent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.preview-loading-text {
+  color: @muted;
+  font-size: @font-size-sm;
 }
 
 .preview-image {
@@ -170,6 +197,51 @@
 .audio-preview {
   width: 100%;
   padding: 16px;
+
+  .aplayer {
+    width: 100%;
+    margin: 0;
+    border: 1px solid @line;
+    border-radius: 8px;
+    box-shadow: 0 12px 30px rgba(42, 37, 31, 0.1);
+    font-family: @font-family;
+    color: @text;
+  }
+
+  .aplayer-list {
+    max-height: 240px;
+    overflow-y: auto;
+    text-align: left;
+  }
+
+  /* restore aplayer's own box model */
+  .aplayer,
+  .aplayer * {
+    box-sizing: content-box;
+    margin: revert;
+    padding: revert;
+  }
+
+  .aplayer-list-title,
+  .aplayer-list-name,
+  .aplayer-list-author {
+    color: @text;
+  }
+
+  /* undo global svg reset for aplayer icons */
+  .aplayer svg {
+    width: auto;
+    height: auto;
+    fill: revert;
+    stroke: revert;
+    stroke-width: revert;
+    stroke-linecap: revert;
+    stroke-linejoin: revert;
+  }
+
+  .aplayer-info {
+    text-align: left;
+  }
 }
 
 .fullscreen-overlay {

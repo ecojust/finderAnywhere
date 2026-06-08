@@ -1,15 +1,16 @@
 <template>
-  <div class="grid-view">
+  <div class="grid-view" ref="gridRef" @scroll="onScroll">
     <button
       v-for="entry in filtered"
       :key="entry.path"
       :class="['grid-item', { selected: entry.path === store.selectedPath }]"
+      :data-path="entry.path"
       @click="selectEntry(entry)"
     >
       <span class="thumb">
         <template v-if="entry.kind === 'image'">
-          <img v-if="thumb(entry)?.url" :src="thumb(entry).url" :alt="entry.name" loading="lazy" decoding="async" />
-          <span v-else-if="thumb(entry)?.loading" class="async-thumb loading" v-html="icons.image" />
+          <img v-if="thumbUrl(entry)" :src="thumbUrl(entry)" :alt="entry.name" loading="lazy" decoding="async" />
+          <span v-else-if="thumbLoading(entry)" class="async-thumb loading" v-html="icons.image" />
           <span v-else class="async-thumb" v-html="icons.image" />
         </template>
         <span v-else class="file-icon" v-html="thumbIcon(entry)" />
@@ -23,13 +24,15 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { useAppStore } from '@/stores/appStore'
 import { useEventBus } from '@/composables/useEventBus'
 import { formatBytes } from '@/composables/useFormat'
+import { loadThumbnail } from '@/composables/useThumbLoader'
 
 const store = useAppStore()
 const bus = useEventBus()
+const gridRef = ref(null)
 
 const icons = {
   folder: '<svg viewBox="0 0 24 24"><path d="M3 6.5A2.5 2.5 0 0 1 5.5 4H10l2 2h6.5A2.5 2.5 0 0 1 21 8.5v8A2.5 2.5 0 0 1 18.5 19h-13A2.5 2.5 0 0 1 3 16.5z"/></svg>',
@@ -47,14 +50,32 @@ const filtered = computed(() => {
   return store.entries.filter(e => e.name.toLowerCase().includes(kw))
 })
 
-function thumb(entry) {
-  return store.thumbCache.get(entry.path)
+function thumbUrl(entry) {
+  return store.thumbCache.get(entry.path)?.url
+}
+
+function thumbLoading(entry) {
+  return store.thumbCache.get(entry.path)?.loading
 }
 
 function thumbIcon(entry) {
   if (entry.entryType === 'directory') return `<span class="folder-badge">${icons.folder}</span>`
   const k = entry.kind === 'music' ? 'audio' : icons[entry.kind] ? entry.kind : 'file'
   return `<span class="file-icon">${icons[k]}</span>`
+}
+
+function loadVisibleThumbs() {
+  const el = gridRef.value
+  if (!el) return
+  const items = el.querySelectorAll('.grid-item')
+  const rect = el.getBoundingClientRect()
+  for (const item of items) {
+    const itemRect = item.getBoundingClientRect()
+    if (itemRect.top < rect.bottom + 200 && itemRect.bottom > rect.top - 200) {
+      const path = item.getAttribute('data-path')
+      if (path) loadThumbnail(store.entryByPath.get(path))
+    }
+  }
 }
 
 function selectEntry(entry) {
@@ -67,4 +88,12 @@ function selectEntry(entry) {
   store.selectedPath = entry.path
   bus.emit('preview-entry', entry)
 }
+
+function onScroll() {
+  loadVisibleThumbs()
+}
+
+onMounted(() => {
+  nextTick(loadVisibleThumbs)
+})
 </script>

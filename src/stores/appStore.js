@@ -22,7 +22,19 @@ const state = reactive({
   ocserverModels: [],
   fullscreenOpen: false,
   thumbCache: new Map(),
+  highReqCount: 0,
+  toastMessage: '',
+  toastVisible: false,
 })
+
+let toastTimer = null
+
+export function showToast(msg) {
+  state.toastMessage = msg
+  state.toastVisible = true
+  if (toastTimer) clearTimeout(toastTimer)
+  toastTimer = setTimeout(() => { state.toastVisible = false }, 2000)
+}
 
 export function useAppStore() {
   return state

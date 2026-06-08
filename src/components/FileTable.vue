@@ -40,6 +40,7 @@ import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { useAppStore } from '@/stores/appStore'
 import { useEventBus } from '@/composables/useEventBus'
 import { formatBytes, formatDate, typeLabel } from '@/composables/useFormat'
+import { loadThumbnails } from '@/composables/useThumbLoader'
 
 const store = useAppStore()
 const bus = useEventBus()
@@ -83,12 +84,19 @@ function recalc() {
   end.value = Math.min(filtered.value.length, Math.ceil((scrollTop + vh) / ROW_H) + BUFFER)
 }
 
+function scheduleThumbLoad() {
+  nextTick(() => {
+    loadThumbnails(visible.value)
+  })
+}
+
 function onScroll(e) {
   const el = e.currentTarget
   const scrollTop = el.scrollTop
   const vh = el.clientHeight || 480
   start.value = Math.max(0, Math.floor(scrollTop / ROW_H) - BUFFER)
   end.value = Math.min(filtered.value.length, Math.ceil((scrollTop + vh) / ROW_H) + BUFFER)
+  scheduleThumbLoad()
 }
 
 watch(filtered, () => {
@@ -96,9 +104,9 @@ watch(filtered, () => {
   recalc()
 })
 
-watch(() => store.entries.length, () => recalc())
+watch(() => store.entries.length, () => { recalc(); scheduleThumbLoad() })
 
-onMounted(recalc)
+onMounted(() => { recalc(); scheduleThumbLoad() })
 
 function selectEntry(entry) {
   if (entry.entryType === 'directory') {

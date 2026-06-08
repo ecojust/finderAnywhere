@@ -51,7 +51,7 @@
 
 <script setup>
 import { computed } from 'vue'
-import { useAppStore } from '@/stores/appStore'
+import { useAppStore, showToast } from '@/stores/appStore'
 import { useTauri } from '@/composables/useTauri'
 import { basename } from '@/composables/useFormat'
 
@@ -137,7 +137,7 @@ function setView(v) {
 async function copyShareUrl(e) {
   const text = shareUrls.value[0]
   if (text) {
-    try { await navigator.clipboard.writeText(text) } catch {}
+    try { await navigator.clipboard.writeText(text); showToast('地址已复制') } catch {}
   }
 }
 

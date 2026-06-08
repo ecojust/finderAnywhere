@@ -11,7 +11,7 @@
       <section class="browser-panel">
         <div class="browser-header">
           <div>
-            <h1>{{ folderTitle }}</h1>
+            <h1>{{ folderTitle }}<span v-if="store.highReqCount > 0" class="flowing-dot"><span></span><span></span><span></span></span></h1>
             <p>{{ folderMeta }}</p>
           </div>
         </div>
@@ -23,6 +23,9 @@
       <PreviewPanel v-if="selectedEntry" :entry="selectedEntry" />
     </main>
     <OcserverDialog v-if="showOcDialog" @close="showOcDialog = false" />
+    <transition name="toast">
+      <div v-if="store.toastVisible" class="toast">{{ store.toastMessage }}</div>
+    </transition>
   </div>
 </template>
 
@@ -31,6 +34,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useAppStore } from '@/stores/appStore'
 import { useTauri } from '@/composables/useTauri'
 import { useEventBus } from '@/composables/useEventBus'
+import { clearThumbQueue } from '@/composables/useThumbLoader'
 import Toolbar from '@/components/Toolbar.vue'
 import FileTable from '@/components/FileTable.vue'
 import FileGrid from '@/components/FileGrid.vue'
@@ -57,6 +61,7 @@ async function openPath(path, pushHistory = true) {
   selectedEntry.value = null
   store.resourceUrlByPath.clear()
   store.previewUrlByPath.clear()
+  clearThumbQueue()
 
   try {
     const data = await tauri.listDirectory(store.root || null, normalized || null)
@@ -66,32 +71,10 @@ async function openPath(path, pushHistory = true) {
     store.breadcrumbs = data.breadcrumbs
     folderTitle.value = data.name
     folderMeta.value = `${data.entries.length} 项`
-    // defer prefetchThumbs to avoid starving the startup IPC calls
-    setTimeout(() => prefetchThumbs(data.entries), 0)
   } catch (e) {
     folderTitle.value = '错误'
     folderMeta.value = String(e)
     store.entries = []
-  }
-}
-
-function prefetchThumbs(entries) {
-  const images = entries.filter(e => e.entryType === 'file' && e.kind === 'image')
-  for (const entry of images) {
-    const key = entry.path
-    if (store.thumbCache.has(key)) continue
-    store.thumbCache.set(key, { loading: true, url: '' })
-    tauri.previewUrl(entry.absolutePath, 420)
-      .then(url => {
-        if (store.thumbCache.get(key)?.loading !== false) {
-          store.thumbCache.set(key, { loading: false, url })
-        }
-      })
-      .catch(() => {
-        if (store.thumbCache.get(key)?.loading !== false) {
-          store.thumbCache.set(key, { loading: false, url: '' })
-        }
-      })
   }
 }
 
@@ -110,10 +93,18 @@ async function handleRefresh() {
 
 async function loadShareInfo() {
   try {
-    const info = await tauri.shareInfo(store.root || null, store.sharePortLocked ? store.savedSharePort : null)
+    const config = await tauri.appConfig()
+    store.sharePortLocked = config.sharePortLocked
+    if (config.sharePortLocked && config.sharePort) {
+      store.savedSharePort = config.sharePort
+    }
+    const lockedPort = config.sharePortLocked ? config.sharePort : null
+    const info = await tauri.shareInfo(store.root || null, lockedPort)
     store.root = info.root
     store.currentSharePort = info.port
-    store.savedSharePort = info.port
+    if (!config.sharePortLocked) {
+      store.savedSharePort = info.port
+    }
     const urls = info.lanUrls?.length ? info.lanUrls : [info.localUrl]
     store.shareUrls = urls
     store.shareTitle = `局域网分享地址：${urls.join('  ')}`
