@@ -71,6 +71,7 @@ jobs:
         run: yarn sidecar
 
       - name: Verify sidecar binary
+        shell: bash
         run: |
           ls -lh src-tauri/binaries/
           file src-tauri/binaries/opencode-* 2>/dev/null || echo "no sidecar found"
