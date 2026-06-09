@@ -66,6 +66,15 @@ jobs:
       - name: Install frontend dependencies
         run: yarn install
 
+      # Download sidecar binary (opencode)
+      - name: Download sidecar binary
+        run: yarn sidecar
+
+      - name: Verify sidecar binary
+        run: |
+          ls -lh src-tauri/binaries/
+          file src-tauri/binaries/opencode-* 2>/dev/null || echo "no sidecar found"
+
       # Build the app
       - name: Build the app
         uses: tauri-apps/tauri-action@v0
@@ -80,3 +89,44 @@ jobs:
           tauriScript: yarn tauri
           assetNamePattern: "[name]_[version]_[platform]_[arch][ext]"
           args: ${{ matrix.args }}
+
+      # Verify bundle contains the sidecar binary
+      - name: Verify bundle contents
+        shell: bash
+        run: |
+          set -x
+          # Find bundle directory
+          TARGET_DIR="src-tauri/target"
+          if [ -n "${{ matrix.rust_target }}" ]; then
+            BUNDLE_DIR="$TARGET_DIR/${{ matrix.rust_target }}/release/bundle"
+          else
+            BUNDLE_DIR="$TARGET_DIR/release/bundle"
+          fi
+          echo "=== bundle directory ==="
+          find "$BUNDLE_DIR" -maxdepth 2 -type f -o -type d | head -30
+          echo ""
+          echo "=== bundle sizes ==="
+          du -sh "$BUNDLE_DIR"/* 2>/dev/null
+
+          # On macOS, inspect .app bundle for sidecar
+          if [ "${{ runner.os }}" == "macOS" ]; then
+            APP=$(find "$BUNDLE_DIR" -name "*.app" -type d | head -1)
+            if [ -n "$APP" ]; then
+              echo ""
+              echo "=== app bundle size ==="
+              du -sh "$APP"
+              echo ""
+              echo "=== app bundle contents (MacOS) ==="
+              ls -lh "$APP/Contents/MacOS/"
+              echo ""
+              echo "=== sidecar binary inside app ==="
+              find "$APP" -name "opencode*" -exec ls -lh {} \; 2>/dev/null || echo "opencode NOT found in app bundle"
+            fi
+          fi
+
+          # On Windows, check installer directory
+          if [ "${{ runner.os }}" == "Windows" ]; then
+            echo ""
+            echo "=== Windows bundle contents ==="
+            find "$BUNDLE_DIR" -name "opencode*" -exec ls -lh {} \; 2>/dev/null || echo "opencode NOT found in bundle"
+          fi
