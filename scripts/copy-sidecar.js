@@ -20,17 +20,19 @@ const GITHUB_RELEASE = 'https://github.com/anomalyco/opencode/releases/download'
 
 async function main() {
   const target = process.env.TARGET || guessTarget();
+  console.log(`[sidecar] target=${target}, platform=${process.platform}, arch=${process.arch}`);
   if (!target) {
-    console.error('Unsupported platform:', process.platform, process.arch);
+    console.error('[sidecar] unsupported platform:', process.platform, process.arch);
     process.exit(1);
   }
 
   const ext = process.platform === 'win32' ? '.exe' : '';
   const sidecarName = `opencode-${target}${ext}`;
   const dest = join(binariesDir, sidecarName);
+  console.log(`[sidecar] destination: ${dest}`);
 
   if (existsSync(dest)) {
-    console.log(`sidecar already exists: ${sidecarName}`);
+    console.log(`[sidecar] already exists, skipping: ${sidecarName}`);
     return;
   }
 
@@ -38,21 +40,24 @@ async function main() {
 
   const local = findLocalBinary();
   if (local) {
+    console.log(`[sidecar] found locally at: ${local}, copying...`);
     copyFileSync(local, dest);
-    console.log(`copied opencode from local: ${local}`);
+    console.log(`[sidecar] copied from local: ${local}`);
     return;
   }
+  console.log('[sidecar] not found locally, will download from GitHub');
 
   const info = PLATFORM_MAP[`${process.platform},${process.arch}`];
   if (!info) {
-    console.error(`No download info for ${process.platform} ${process.arch}`);
+    console.error(`[sidecar] no download info for ${process.platform} ${process.arch}`);
     process.exit(1);
   }
 
   const [osName, archName, extName] = info;
   const version = await getLatestVersion();
+  console.log(`[sidecar] latest opencode version: v${version}`);
   await downloadAndExtract(osName, archName, extName, version, dest);
-  console.log(`downloaded opencode sidecar v${version}`);
+  console.log(`[sidecar] downloaded and installed opencode v${version}`);
 }
 
 function guessTarget() {
@@ -79,10 +84,14 @@ function findLocalBinary() {
 
 async function getLatestVersion() {
   try {
+    console.log('[sidecar] fetching latest version from GitHub API...');
     const res = await fetch('https://api.github.com/repos/anomalyco/opencode/releases/latest');
     const data = await res.json();
-    return (data.tag_name || 'v1.16.2').replace(/^v/, '');
-  } catch {
+    const ver = (data.tag_name || 'v1.16.2').replace(/^v/, '');
+    console.log(`[sidecar] latest version: v${ver}`);
+    return ver;
+  } catch (e) {
+    console.log(`[sidecar] failed to fetch latest version, fallback to 1.16.2 (${e.message})`);
     return '1.16.2';
   }
 }
@@ -94,7 +103,7 @@ async function downloadAndExtract(osName, archName, extName, version, dest) {
   mkdirSync(tmpDir, { recursive: true });
   const archivePath = join(tmpDir, archiveName);
 
-  console.log(`downloading ${url}...`);
+  console.log(`[sidecar] downloading ${url} ...`);
 
   if (process.platform === 'win32') {
     spawnSync('powershell', [
@@ -104,11 +113,14 @@ async function downloadAndExtract(osName, archName, extName, version, dest) {
   } else {
     const r = spawnSync('curl', ['-#L', '-o', archivePath, url], { stdio: 'inherit' });
     if (r.status !== 0) {
+      console.log('[sidecar] curl failed, trying wget...');
       spawnSync('wget', ['-q', '-O', archivePath, url], { stdio: 'inherit' });
     }
   }
 
   if (!existsSync(archivePath)) throw new Error(`download failed: ${url}`);
+  const size = statSync(archivePath).size;
+  console.log(`[sidecar] download complete (${size} bytes), extracting...`);
 
   if (extName === 'zip') {
     if (process.platform === 'win32') {
@@ -125,6 +137,7 @@ async function downloadAndExtract(osName, archName, extName, version, dest) {
 
   const found = findBinary(tmpDir);
   if (!found) throw new Error('opencode binary not found in archive');
+  console.log(`[sidecar] extracted: ${found}`);
 
   copyFileSync(found, dest);
   if (process.platform !== 'win32') {
@@ -132,6 +145,7 @@ async function downloadAndExtract(osName, archName, extName, version, dest) {
   }
 
   rmSync(tmpDir, { recursive: true, force: true });
+  console.log(`[sidecar] installed to: ${dest}`);
 }
 
 function findBinary(dir) {
@@ -148,6 +162,6 @@ function findBinary(dir) {
 }
 
 main().catch((err) => {
-  console.error('Error:', err.message);
+  console.error(`[sidecar] error: ${err.message}`);
   process.exit(1);
 });
