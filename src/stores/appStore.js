@@ -1,12 +1,12 @@
-import { reactive } from 'vue'
+import { reactive } from "vue";
 
 const state = reactive({
-  root: '',
-  currentPath: '',
+  root: "",
+  currentPath: "",
   entries: [],
-  selectedPath: '',
-  search: '',
-  view: localStorage.getItem('finder-anywhere-view') || 'list',
+  selectedPath: "",
+  search: "",
+  view: localStorage.getItem("oFinder-view") || "list",
   sharePortLocked: false,
   savedSharePort: null,
   currentSharePort: null,
@@ -17,25 +17,27 @@ const state = reactive({
   forwardStack: [],
   ocserverRunning: false,
   ocserverLoading: false,
-  ocserverUrl: '',
-  ocserverVersion: '',
+  ocserverUrl: "",
+  ocserverVersion: "",
   ocserverModels: [],
   fullscreenOpen: false,
   thumbCache: new Map(),
   highReqCount: 0,
-  toastMessage: '',
+  toastMessage: "",
   toastVisible: false,
-})
+});
 
-let toastTimer = null
+let toastTimer = null;
 
 export function showToast(msg) {
-  state.toastMessage = msg
-  state.toastVisible = true
-  if (toastTimer) clearTimeout(toastTimer)
-  toastTimer = setTimeout(() => { state.toastVisible = false }, 2000)
+  state.toastMessage = msg;
+  state.toastVisible = true;
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    state.toastVisible = false;
+  }, 2000);
 }
 
 export function useAppStore() {
-  return state
+  return state;
 }

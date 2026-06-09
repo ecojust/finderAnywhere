@@ -1,8 +1,8 @@
 [package]
-name = "finder-anywhere"
+name = "oFinder"
 version = "0.2.0"
-description = "Finder Anywhere"
-authors = ["Finder Anywhere"]
+description = "oFinder"
+authors = ["oFinder"]
 edition = "2021"
 
 [lib]

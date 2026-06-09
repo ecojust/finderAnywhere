@@ -78,11 +78,10 @@ fn download_from_github(binaries_dir: &PathBuf, target: &str) -> bool {
 
     let version = "v1.16.2";
     let archive_name = format!("opencode-{os}-{arch}.{ext}");
-    let url = format!(
-        "https://github.com/anomalyco/opencode/releases/download/{version}/{archive_name}"
-    );
+    let url =
+        format!("https://github.com/anomalyco/opencode/releases/download/{version}/{archive_name}");
 
-    let temp_dir = std::env::temp_dir().join("finder-anywhere-sidecar");
+    let temp_dir = std::env::temp_dir().join("oFinder-sidecar");
     std::fs::create_dir_all(&temp_dir).ok();
     let archive_path = temp_dir.join(&archive_name);
 
@@ -108,7 +107,13 @@ fn download_from_github(binaries_dir: &PathBuf, target: &str) -> bool {
             .map(|o| o.status.success())
             .unwrap_or(false)
             || Command::new("wget")
-                .args(["-q", "--content-on-error=off", "-O", &archive_path.to_string_lossy(), &url])
+                .args([
+                    "-q",
+                    "--content-on-error=off",
+                    "-O",
+                    &archive_path.to_string_lossy(),
+                    &url,
+                ])
                 .output()
                 .map(|o| o.status.success())
                 .unwrap_or(false)
@@ -151,14 +156,25 @@ fn download_from_github(binaries_dir: &PathBuf, target: &str) -> bool {
                 .unwrap_or(false)
         } else {
             Command::new("unzip")
-                .args(["-q", "-o", &archive_path.to_string_lossy(), "-d", &temp_dir.to_string_lossy()])
+                .args([
+                    "-q",
+                    "-o",
+                    &archive_path.to_string_lossy(),
+                    "-d",
+                    &temp_dir.to_string_lossy(),
+                ])
                 .output()
                 .map(|o| o.status.success())
                 .unwrap_or(false)
         }
     } else {
         Command::new("tar")
-            .args(["-xzf", &archive_path.to_string_lossy(), "-C", &temp_dir.to_string_lossy()])
+            .args([
+                "-xzf",
+                &archive_path.to_string_lossy(),
+                "-C",
+                &temp_dir.to_string_lossy(),
+            ])
             .output()
             .map(|o| o.status.success())
             .unwrap_or(false)
@@ -269,10 +285,16 @@ fn main() {
 
     println!("cargo:warning=opencode binary not found and download failed");
     println!("cargo:warning=install opencode with: npm install -g opencode-ai");
-    println!("cargo:warning=or place the binary manually at: {}", dest.display());
+    println!(
+        "cargo:warning=or place the binary manually at: {}",
+        dest.display()
+    );
 
     // In CI, fail the build so we don't produce a broken package
-    if std::env::var("CI").map(|v| v == "true" || v == "1").unwrap_or(false) {
+    if std::env::var("CI")
+        .map(|v| v == "true" || v == "1")
+        .unwrap_or(false)
+    {
         panic!("opencode sidecar binary is required for CI builds");
     }
 

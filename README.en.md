@@ -1,4 +1,4 @@
-# Finder Anywhere
+# oFinder
 
 A Tauri-based local file browser and LAN sharing tool.
 
@@ -38,7 +38,7 @@ A Tauri-based local file browser and LAN sharing tool.
 ### Cross-platform
 
 - Supports macOS and Windows
-- Configuration stored in system standard config directory (`Finder Anywhere/config.json`)
+- Configuration stored in system standard config directory (`oFinder/config.json`)
 - Image cache stored in system cache directory
 
 ## Tech Stack

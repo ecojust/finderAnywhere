@@ -17,7 +17,7 @@ use tauri_plugin_shell::ShellExt;
 const SHARE_SHELL_TEMPLATE: &str = include_str!("../templates/share_shell.html");
 const APLAYER_CSS: &[u8] = include_bytes!("../vendor/aplayer/APlayer.min.css");
 const APLAYER_JS: &[u8] = include_bytes!("../vendor/aplayer/APlayer.min.js");
-const APP_CONFIG_DIR: &str = "Finder Anywhere";
+const APP_CONFIG_DIR: &str = "oFinder";
 const APP_CONFIG_FILE: &str = "config.json";
 
 struct AppState {
@@ -738,7 +738,7 @@ document.querySelectorAll('[data-aplayer]').forEach((container) => {
   if (!audio.length && container.dataset.url) {
     audio = [{
       name: container.dataset.title || '音乐',
-      artist: 'Finder Anywhere',
+      artist: 'oFinder',
       url: container.dataset.url
     }];
   }
@@ -900,7 +900,7 @@ fn music_preview_items(entries: &[FileEntry]) -> Vec<MusicPreviewItem> {
             MusicPreviewItem {
                 path: entry.path.clone(),
                 name: entry.name.clone(),
-                artist: "Finder Anywhere".into(),
+                artist: "oFinder".into(),
                 url: format!("/file?path={encoded}"),
             }
         })
@@ -1047,7 +1047,10 @@ fn render_share_audio_script(
     mime: Option<&str>,
 ) -> String {
     let is_audio = mime.is_some_and(|mime| {
-        mime.starts_with("audio/") || entries.iter().any(|e| e.path == selected_path.unwrap_or("") && is_music_player_entry(e))
+        mime.starts_with("audio/")
+            || entries
+                .iter()
+                .any(|e| e.path == selected_path.unwrap_or("") && is_music_player_entry(e))
     });
     if !is_audio {
         return String::new();
@@ -1205,7 +1208,7 @@ fn render_preview_body(
                 MusicPreviewItem {
                     path: rel_path.into(),
                     name: title.into(),
-                    artist: "Finder Anywhere".into(),
+                    artist: "oFinder".into(),
                     url: source.clone(),
                 },
             );
@@ -1456,7 +1459,7 @@ fn preview_cache_path(path: &Path, size: u32) -> Result<PathBuf, String> {
     let key = format!("{:x}", hasher.finalize());
     let cache_dir = dirs::cache_dir()
         .unwrap_or_else(std::env::temp_dir)
-        .join("finder-anywhere")
+        .join("oFinder")
         .join("previews");
     fs::create_dir_all(&cache_dir).map_err(|error| error.to_string())?;
     Ok(cache_dir.join(format!("{key}-{size}.jpg")))
@@ -1748,7 +1751,11 @@ async fn ocserver_models(app: tauri::AppHandle) -> Result<Vec<String>, String> {
         }
     }
 
-    Ok(output.lines().map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect())
+    Ok(output
+        .lines()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect())
 }
 
 pub fn run() {
@@ -1779,5 +1786,5 @@ pub fn run() {
             ocserver_models
         ])
         .run(tauri::generate_context!())
-        .expect("error while running Finder Anywhere");
+        .expect("error while running oFinder");
 }

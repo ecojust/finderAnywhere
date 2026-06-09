@@ -1,4 +1,4 @@
-# Finder Anywhere
+# oFinder
 
 一个基于 Tauri 的本地文件浏览与局域网共享工具。
 
@@ -38,7 +38,7 @@
 ### 跨平台
 
 - 支持 macOS 和 Windows
-- 配置存储于系统标准配置目录（`Finder Anywhere/config.json`）
+- 配置存储于系统标准配置目录（`oFinder/config.json`）
 - 图片缓存存储于系统缓存目录
 
 ## 技术栈

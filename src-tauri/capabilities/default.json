@@ -1,6 +1,6 @@
 {
   "identifier": "default",
-  "description": "Default capability for Finder Anywhere",
+  "description": "Default capability for oFinder",
   "windows": ["main"],
   "permissions": [
     "core:default",
