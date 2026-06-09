@@ -103,12 +103,12 @@ fn download_from_github(binaries_dir: &PathBuf, target: &str) -> bool {
             .unwrap_or(false)
     } else {
         Command::new("curl")
-            .args(["-sL", "-o", &archive_path.to_string_lossy(), &url])
+            .args(["-sLf", "-o", &archive_path.to_string_lossy(), &url])
             .output()
             .map(|o| o.status.success())
             .unwrap_or(false)
             || Command::new("wget")
-                .args(["-q", "-O", &archive_path.to_string_lossy(), &url])
+                .args(["-q", "--content-on-error=off", "-O", &archive_path.to_string_lossy(), &url])
                 .output()
                 .map(|o| o.status.success())
                 .unwrap_or(false)
@@ -116,6 +116,20 @@ fn download_from_github(binaries_dir: &PathBuf, target: &str) -> bool {
 
     if !download_ok || !archive_path.exists() {
         println!("cargo:warning=failed to download opencode from {url}");
+        // cleanup partial download
+        let _ = std::fs::remove_file(&archive_path);
+        return false;
+    }
+
+    // Validate archive is not an HTML error page
+    let is_valid = if ext == "zip" {
+        validate_zip(&archive_path)
+    } else {
+        validate_tar_gz(&archive_path)
+    };
+    if !is_valid {
+        println!("cargo:warning=downloaded opencode archive is invalid (HTML error page?)");
+        let _ = std::fs::remove_file(&archive_path);
         return false;
     }
 
@@ -202,6 +216,24 @@ fn walk_extracted(dir: &PathBuf, target: &str) -> Option<PathBuf> {
     None
 }
 
+fn validate_zip(path: &PathBuf) -> bool {
+    // check zip magic bytes: PK\x03\x04
+    if let Ok(data) = std::fs::read(path) {
+        data.len() >= 4 && data[0] == 0x50 && data[1] == 0x4b && data[2] == 0x03 && data[3] == 0x04
+    } else {
+        false
+    }
+}
+
+fn validate_tar_gz(path: &PathBuf) -> bool {
+    // check gzip magic bytes: \x1f\x8b
+    if let Ok(data) = std::fs::read(path) {
+        data.len() >= 2 && data[0] == 0x1f && data[1] == 0x8b
+    } else {
+        false
+    }
+}
+
 fn main() {
     // Only re-run build.rs if this file itself changes
     println!("cargo:rerun-if-changed=build.rs");
@@ -238,6 +270,11 @@ fn main() {
     println!("cargo:warning=opencode binary not found and download failed");
     println!("cargo:warning=install opencode with: npm install -g opencode-ai");
     println!("cargo:warning=or place the binary manually at: {}", dest.display());
+
+    // In CI, fail the build so we don't produce a broken package
+    if std::env::var("CI").map(|v| v == "true" || v == "1").unwrap_or(false) {
+        panic!("opencode sidecar binary is required for CI builds");
+    }
 
     tauri_build::build();
 }
