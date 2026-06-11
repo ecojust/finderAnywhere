@@ -12,7 +12,7 @@ fn target_arch_name(target: &str) -> Option<(&str, &str, &str)> {
         }
     } else if target.ends_with("windows-msvc") {
         if target.starts_with("x86_64") {
-            Some(("windows", "x64", "zip"))
+            Some(("windows", "x64-baseline", "zip"))
         } else if target.starts_with("aarch64") {
             Some(("windows", "arm64", "zip"))
         } else {
