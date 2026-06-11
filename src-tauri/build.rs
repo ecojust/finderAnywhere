@@ -57,6 +57,13 @@ fn copy_from_local(binaries_dir: &PathBuf, target: &str) -> bool {
             if let Some(src) = found {
                 let src_path = PathBuf::from(&src);
                 if src_path.exists() {
+                    if !validate_executable(&src_path, target) {
+                        println!(
+                            "cargo:warning=skipping non-native opencode candidate: {}",
+                            src_path.display()
+                        );
+                        continue;
+                    }
                     let dest = sidecar_path(binaries_dir, target);
                     std::fs::copy(&src_path, &dest).ok();
                     return true;
@@ -82,7 +89,9 @@ fn download_from_github(binaries_dir: &PathBuf, target: &str) -> bool {
         format!("https://github.com/anomalyco/opencode/releases/download/{version}/{archive_name}");
 
     let temp_dir = std::env::temp_dir().join("oFinder-sidecar");
-    std::fs::create_dir_all(&temp_dir).ok();
+    let extract_dir = temp_dir.join("extract");
+    let _ = std::fs::remove_dir_all(&temp_dir);
+    std::fs::create_dir_all(&extract_dir).ok();
     let archive_path = temp_dir.join(&archive_name);
 
     // Download
@@ -148,7 +157,7 @@ fn download_from_github(binaries_dir: &PathBuf, target: &str) -> bool {
                     &format!(
                         "Expand-Archive -Path '{}' -DestinationPath '{}' -Force",
                         archive_path.display(),
-                        temp_dir.display()
+                        extract_dir.display()
                     ),
                 ])
                 .output()
@@ -161,7 +170,7 @@ fn download_from_github(binaries_dir: &PathBuf, target: &str) -> bool {
                     "-o",
                     &archive_path.to_string_lossy(),
                     "-d",
-                    &temp_dir.to_string_lossy(),
+                    &extract_dir.to_string_lossy(),
                 ])
                 .output()
                 .map(|o| o.status.success())
@@ -173,7 +182,7 @@ fn download_from_github(binaries_dir: &PathBuf, target: &str) -> bool {
                 "-xzf",
                 &archive_path.to_string_lossy(),
                 "-C",
-                &temp_dir.to_string_lossy(),
+                &extract_dir.to_string_lossy(),
             ])
             .output()
             .map(|o| o.status.success())
@@ -185,14 +194,7 @@ fn download_from_github(binaries_dir: &PathBuf, target: &str) -> bool {
         return false;
     }
 
-    // Find binary in extracted files
-    let binary_name = if target.contains("windows") {
-        "opencode.exe"
-    } else {
-        "opencode"
-    };
-
-    let found = walk_extracted(&temp_dir, binary_name);
+    let found = walk_extracted(&extract_dir, target);
     if let Some(src) = found {
         let dest = sidecar_path(binaries_dir, target);
         std::fs::copy(&src, &dest).ok();
@@ -218,7 +220,7 @@ fn walk_extracted(dir: &PathBuf, target: &str) -> Option<PathBuf> {
             let path = entry.path();
             if path.is_file() {
                 if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                    if name == target || name.starts_with("opencode") {
+                    if name.starts_with("opencode") && validate_executable(&path, target) {
                         return Some(path);
                     }
                 }
@@ -250,6 +252,41 @@ fn validate_tar_gz(path: &PathBuf) -> bool {
     }
 }
 
+fn validate_executable(path: &PathBuf, target: &str) -> bool {
+    let Ok(data) = std::fs::read(path) else {
+        return false;
+    };
+    if target.contains("windows") {
+        if data.len() < 0x40 || data[0] != 0x4d || data[1] != 0x5a {
+            return false;
+        }
+        let pe_offset =
+            u32::from_le_bytes([data[0x3c], data[0x3d], data[0x3e], data[0x3f]]) as usize;
+        pe_offset + 4 <= data.len()
+            && data[pe_offset] == 0x50
+            && data[pe_offset + 1] == 0x45
+            && data[pe_offset + 2] == 0x00
+            && data[pe_offset + 3] == 0x00
+    } else if target.contains("linux") {
+        data.len() >= 4 && data[0] == 0x7f && data[1] == 0x45 && data[2] == 0x4c && data[3] == 0x46
+    } else if target.contains("apple-darwin") {
+        data.len() >= 4
+            && matches!(
+                &data[0..4],
+                [0xfe, 0xed, 0xfa, 0xce]
+                    | [0xce, 0xfa, 0xed, 0xfe]
+                    | [0xfe, 0xed, 0xfa, 0xcf]
+                    | [0xcf, 0xfa, 0xed, 0xfe]
+                    | [0xca, 0xfe, 0xba, 0xbe]
+                    | [0xbe, 0xba, 0xfe, 0xca]
+                    | [0xca, 0xfe, 0xba, 0xbf]
+                    | [0xbf, 0xba, 0xfe, 0xca]
+            )
+    } else {
+        false
+    }
+}
+
 fn main() {
     // Only re-run build.rs if this file itself changes
     println!("cargo:rerun-if-changed=build.rs");
@@ -265,8 +302,14 @@ fn main() {
 
     // Strategy 1: already exists → skip
     if dest.exists() {
-        tauri_build::build();
-        return;
+        if validate_executable(&dest, &target) {
+            tauri_build::build();
+            return;
+        }
+        println!(
+            "cargo:warning=existing opencode sidecar is invalid, replacing: {}",
+            dest.display()
+        );
     }
 
     std::fs::create_dir_all(&binaries_dir).ok();

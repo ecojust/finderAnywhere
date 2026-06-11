@@ -1610,6 +1610,52 @@ async fn choose_root(app: tauri::AppHandle) -> Result<Option<String>, String> {
         .transpose()
 }
 
+#[cfg(windows)]
+fn opencode_sidecar_path() -> Result<PathBuf, String> {
+    let exe_path = std::env::current_exe().map_err(|e| format!("无法定位当前程序：{e}"))?;
+    let exe_dir = exe_path
+        .parent()
+        .ok_or_else(|| "无法定位当前程序目录".to_string())?;
+    Ok(exe_dir.join("opencode.exe"))
+}
+
+#[cfg(windows)]
+fn is_windows_pe(path: &Path) -> Result<bool, String> {
+    let data = fs::read(path).map_err(|e| format!("无法读取 opencode：{e}"))?;
+    if data.len() < 0x40 || data[0] != 0x4d || data[1] != 0x5a {
+        return Ok(false);
+    }
+    let pe_offset = u32::from_le_bytes([data[0x3c], data[0x3d], data[0x3e], data[0x3f]]) as usize;
+    Ok(pe_offset + 4 <= data.len()
+        && data[pe_offset] == 0x50
+        && data[pe_offset + 1] == 0x45
+        && data[pe_offset + 2] == 0x00
+        && data[pe_offset + 3] == 0x00)
+}
+
+#[cfg(windows)]
+fn ensure_opencode_sidecar() -> Result<(), String> {
+    let path = opencode_sidecar_path()?;
+    if !path.exists() {
+        return Err(format!(
+            "opencode 未打包到安装目录，请重新安装最新版。缺失文件：{}",
+            path.display()
+        ));
+    }
+    if !is_windows_pe(&path)? {
+        return Err(format!(
+            "打包内的 opencode.exe 不是有效的 Windows 可执行文件，请删除旧安装目录后重新安装。文件路径：{}",
+            path.display()
+        ));
+    }
+    Ok(())
+}
+
+#[cfg(not(windows))]
+fn ensure_opencode_sidecar() -> Result<(), String> {
+    Ok(())
+}
+
 #[tauri::command]
 async fn start_ocserver(
     path: String,
@@ -1628,6 +1674,8 @@ async fn start_ocserver(
             TcpListener::bind(("127.0.0.1", 0)).map_err(|e| format!("端口分配失败：{e}"))?;
         listener.local_addr().map_err(|e| e.to_string())?.port()
     };
+
+    ensure_opencode_sidecar()?;
 
     let cmd = app
         .shell()
@@ -1711,6 +1759,8 @@ async fn stop_ocserver(state: State<'_, AppState>) -> Result<(), String> {
 async fn ocserver_version(app: tauri::AppHandle) -> Result<String, String> {
     use tauri_plugin_shell::process::CommandEvent;
 
+    ensure_opencode_sidecar()?;
+
     let (mut rx, _child) = app
         .shell()
         .sidecar("opencode")
@@ -1733,6 +1783,8 @@ async fn ocserver_version(app: tauri::AppHandle) -> Result<String, String> {
 #[tauri::command]
 async fn ocserver_models(app: tauri::AppHandle) -> Result<Vec<String>, String> {
     use tauri_plugin_shell::process::CommandEvent;
+
+    ensure_opencode_sidecar()?;
 
     let (mut rx, _child) = app
         .shell()

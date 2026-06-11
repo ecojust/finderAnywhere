@@ -2,6 +2,7 @@ import { execSync, spawnSync } from "child_process";
 import {
   copyFileSync,
   existsSync,
+  readFileSync,
   mkdirSync,
   readdirSync,
   rmSync,
@@ -47,13 +48,16 @@ async function main() {
   console.log(`[sidecar] destination: ${dest}`);
 
   if (existsSync(dest)) {
-    console.log(`[sidecar] already exists, skipping: ${sidecarName}`);
-    return;
+    if (isValidExecutable(dest, target)) {
+      console.log(`[sidecar] already exists, skipping: ${sidecarName}`);
+      return;
+    }
+    console.log(`[sidecar] existing file is invalid, replacing: ${sidecarName}`);
   }
 
   mkdirSync(binariesDir, { recursive: true });
 
-  const local = findLocalBinary();
+  const local = findLocalBinary(target);
   if (local) {
     console.log(`[sidecar] found locally at: ${local}, copying...`);
     copyFileSync(local, dest);
@@ -89,12 +93,16 @@ function guessTarget() {
   return map[`${process.platform},${process.arch}`] || null;
 }
 
-function findLocalBinary() {
-  const whichCmd = process.platform === "win32" ? "where" : "which";
+function findLocalBinary(target) {
+  const lookupCmd = process.platform === "win32" ? "where opencode.exe" : "which opencode";
   try {
-    const out = execSync(`${whichCmd} opencode`, { encoding: "utf8" }).trim();
-    const first = out.split("\n")[0].trim();
-    if (first && existsSync(first)) return first;
+    const out = execSync(lookupCmd, { encoding: "utf8" }).trim();
+    for (const line of out.split(/\r?\n/)) {
+      const candidate = line.trim();
+      if (!candidate || !existsSync(candidate)) continue;
+      if (isValidExecutable(candidate, target)) return candidate;
+      console.log(`[sidecar] skipping non-native executable: ${candidate}`);
+    }
   } catch {
     /* not found */
   }
@@ -123,13 +131,16 @@ async function downloadAndExtract(osName, archName, extName, version, dest) {
   const archiveName = `opencode-${osName}-${archName}.${extName}`;
   const url = `${GITHUB_RELEASE}/v${version}/${archiveName}`;
   const tmpDir = join(binariesDir, ".tmp-dl");
-  mkdirSync(tmpDir, { recursive: true });
+  const extractDir = join(tmpDir, "extract");
+  rmSync(tmpDir, { recursive: true, force: true });
+  mkdirSync(extractDir, { recursive: true });
   const archivePath = join(tmpDir, archiveName);
 
   console.log(`[sidecar] downloading ${url} ...`);
 
+  let downloadResult;
   if (process.platform === "win32") {
-    spawnSync(
+    downloadResult = spawnSync(
       "powershell",
       [
         "-NoProfile",
@@ -139,16 +150,22 @@ async function downloadAndExtract(osName, archName, extName, version, dest) {
       { stdio: "inherit" },
     );
   } else {
-    const r = spawnSync("curl", ["-#L", "-o", archivePath, url], {
+    downloadResult = spawnSync("curl", ["-#L", "-o", archivePath, url], {
       stdio: "inherit",
     });
-    if (r.status !== 0) {
+    if (downloadResult.status !== 0) {
       console.log("[sidecar] curl failed, trying wget...");
-      spawnSync("wget", ["-q", "-O", archivePath, url], { stdio: "inherit" });
+      downloadResult = spawnSync("wget", ["-q", "-O", archivePath, url], {
+        stdio: "inherit",
+      });
     }
   }
 
+  if (downloadResult.status !== 0) throw new Error(`download failed: ${url}`);
   if (!existsSync(archivePath)) throw new Error(`download failed: ${url}`);
+  if (!isValidArchive(archivePath, extName)) {
+    throw new Error(`downloaded archive is invalid: ${url}`);
+  }
   const size = statSync(archivePath).size;
   console.log(`[sidecar] download complete (${size} bytes), extracting...`);
 
@@ -159,20 +176,22 @@ async function downloadAndExtract(osName, archName, extName, version, dest) {
         [
           "-NoProfile",
           "-Command",
-          `Expand-Archive -Path '${archivePath}' -DestinationPath '${tmpDir}' -Force`,
+          `Expand-Archive -Path '${archivePath}' -DestinationPath '${extractDir}' -Force`,
         ],
         { stdio: "inherit" },
       );
     } else {
-      spawnSync("unzip", ["-q", "-o", archivePath, "-d", tmpDir], {
+      spawnSync("unzip", ["-q", "-o", archivePath, "-d", extractDir], {
         stdio: "inherit",
       });
     }
   } else {
-    spawnSync("tar", ["-xzf", archivePath, "-C", tmpDir], { stdio: "inherit" });
+    spawnSync("tar", ["-xzf", archivePath, "-C", extractDir], {
+      stdio: "inherit",
+    });
   }
 
-  const found = findBinary(tmpDir);
+  const found = findBinary(extractDir, dest);
   if (!found) throw new Error("opencode binary not found in archive");
   console.log(`[sidecar] extracted: ${found}`);
 
@@ -187,22 +206,79 @@ async function downloadAndExtract(osName, archName, extName, version, dest) {
   console.log(`[sidecar] installed to: ${dest}`);
 }
 
-function findBinary(dir) {
+function findBinary(dir, dest) {
+  const target = dest.endsWith(".exe")
+    ? dest.slice(0, -4).split("opencode-").pop()
+    : dest.split("opencode-").pop();
   for (const name of readdirSync(dir)) {
     const full = join(dir, name);
     if (statSync(full).isDirectory()) {
-      const found = findBinary(full);
+      const found = findBinary(full, dest);
       if (found) return found;
     } else if (
       statSync(full).isFile() &&
-      (name === "opencode" ||
-        name === "opencode.exe" ||
-        name.startsWith("opencode"))
+      name.startsWith("opencode") &&
+      isValidExecutable(full, target)
     ) {
       return full;
     }
   }
   return null;
+}
+
+function isValidArchive(path, extName) {
+  const buf = readFileSync(path);
+  if (extName === "zip") {
+    return (
+      buf.length >= 4 &&
+      buf[0] === 0x50 &&
+      buf[1] === 0x4b &&
+      buf[2] === 0x03 &&
+      buf[3] === 0x04
+    );
+  }
+  return buf.length >= 2 && buf[0] === 0x1f && buf[1] === 0x8b;
+}
+
+function isValidExecutable(path, target) {
+  const buf = readFileSync(path);
+  if (target.includes("windows")) {
+    if (buf.length < 0x40 || buf[0] !== 0x4d || buf[1] !== 0x5a) {
+      return false;
+    }
+    const peOffset = buf.readUInt32LE(0x3c);
+    return (
+      peOffset + 4 <= buf.length &&
+      buf[peOffset] === 0x50 &&
+      buf[peOffset + 1] === 0x45 &&
+      buf[peOffset + 2] === 0x00 &&
+      buf[peOffset + 3] === 0x00
+    );
+  }
+  if (target.includes("linux")) {
+    return (
+      buf.length >= 4 &&
+      buf[0] === 0x7f &&
+      buf[1] === 0x45 &&
+      buf[2] === 0x4c &&
+      buf[3] === 0x46
+    );
+  }
+  if (target.includes("apple-darwin")) {
+    if (buf.length < 4) return false;
+    const magic = buf.subarray(0, 4).toString("hex");
+    return [
+      "feedface",
+      "cefaedfe",
+      "feedfacf",
+      "cffaedfe",
+      "cafebabe",
+      "bebafeca",
+      "cafebabf",
+      "bfbafeca",
+    ].includes(magic);
+  }
+  return false;
 }
 
 main().catch((err) => {
