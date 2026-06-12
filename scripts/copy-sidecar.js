@@ -52,7 +52,9 @@ async function main() {
       console.log(`[sidecar] already exists, skipping: ${sidecarName}`);
       return;
     }
-    console.log(`[sidecar] existing file is invalid, replacing: ${sidecarName}`);
+    console.log(
+      `[sidecar] existing file is invalid, replacing: ${sidecarName}`,
+    );
   }
 
   mkdirSync(binariesDir, { recursive: true });
@@ -75,8 +77,9 @@ async function main() {
   }
 
   const [osName, archName, extName] = info;
-  const version = await getLatestVersion();
-  console.log(`[sidecar] latest opencode version: v${version}`);
+  // const version = await getLatestVersion();
+  const version = "1.17.0";
+  console.log(`[sidecar] opencode version: v${version}`);
   await downloadAndExtract(osName, archName, extName, version, dest);
   console.log(`[sidecar] downloaded and installed opencode v${version}`);
 }
@@ -94,7 +97,8 @@ function guessTarget() {
 }
 
 function findLocalBinary(target) {
-  const lookupCmd = process.platform === "win32" ? "where opencode.exe" : "which opencode";
+  const lookupCmd =
+    process.platform === "win32" ? "where opencode.exe" : "which opencode";
   try {
     const out = execSync(lookupCmd, { encoding: "utf8" }).trim();
     for (const line of out.split(/\r?\n/)) {

@@ -26,6 +26,8 @@ struct AppState {
     share_port: Arc<Mutex<Option<u16>>>,
     ocserver_child: Arc<Mutex<Option<tauri_plugin_shell::process::CommandChild>>>,
     ocserver_port: Arc<Mutex<Option<u16>>>,
+    ocws_child: Arc<Mutex<Option<tauri_plugin_shell::process::CommandChild>>>,
+    ocws_port: Arc<Mutex<Option<u16>>>,
 }
 
 #[derive(Serialize)]
@@ -1633,6 +1635,33 @@ fn is_windows_pe(path: &Path) -> Result<bool, String> {
         && data[pe_offset + 3] == 0x00)
 }
 
+fn ocserver_log_path() -> PathBuf {
+    let base = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
+    base.join("oFinder").join("opencode-server.log")
+}
+
+fn opencode_serve_args(port: u16) -> Vec<String> {
+    let mut args = vec![
+        "serve".to_string(),
+        "--port".to_string(),
+        port.to_string(),
+        "--print-logs".to_string(),
+    ];
+
+    for origin in [
+        "http://127.0.0.1:1420",
+        "http://localhost:1420",
+        "tauri://localhost",
+        "http://tauri.localhost",
+        "https://tauri.localhost",
+    ] {
+        args.push("--cors".to_string());
+        args.push(origin.to_string());
+    }
+
+    args
+}
+
 #[cfg(windows)]
 fn ensure_opencode_sidecar() -> Result<(), String> {
     let path = opencode_sidecar_path()?;
@@ -1681,7 +1710,7 @@ async fn start_ocserver(
         .shell()
         .sidecar("opencode")
         .map_err(|e| format!("sidecar 加载失败：{e}"))?
-        .args(["serve", "--port", &port.to_string()])
+        .args(opencode_serve_args(port))
         .current_dir(&path);
 
     let (mut rx, child) = cmd.spawn().map_err(|e| format!("启动失败：{e}"))?;
@@ -1721,10 +1750,26 @@ async fn start_ocserver(
     }
 
     // Process-exit watcher
+    let log_path = ocserver_log_path();
+    if let Some(parent) = log_path.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
     tauri::async_runtime::spawn(async move {
         use tauri_plugin_shell::process::CommandEvent;
+        let mut log = fs::OpenOptions::new()
+            .create(true).append(true).open(&log_path).ok();
         loop {
             match rx.recv().await {
+                Some(CommandEvent::Stdout(bytes)) => {
+                    if let Some(ref mut f) = log {
+                        let _ = writeln!(f, "[file-serve] {}", String::from_utf8_lossy(&bytes));
+                    }
+                }
+                Some(CommandEvent::Stderr(bytes)) => {
+                    if let Some(ref mut f) = log {
+                        let _ = writeln!(f, "[file-serve:err] {}", String::from_utf8_lossy(&bytes));
+                    }
+                }
                 Some(CommandEvent::Terminated(_)) | Some(CommandEvent::Error(_)) | None => break,
                 _ => {}
             }
@@ -1810,6 +1855,105 @@ async fn ocserver_models(app: tauri::AppHandle) -> Result<Vec<String>, String> {
         .collect())
 }
 
+#[tauri::command]
+async fn execute_opencode_serve(
+    workspace: String,
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<String, String> {
+    {
+        let guard = state.ocws_port.lock().map_err(|e| e.to_string())?;
+        if let Some(port) = *guard {
+            return Ok(format!("http://127.0.0.1:{port}"));
+        }
+    }
+
+    let port = {
+        let listener =
+            TcpListener::bind(("127.0.0.1", 0)).map_err(|e| format!("端口分配失败：{e}"))?;
+        listener.local_addr().map_err(|e| e.to_string())?.port()
+    };
+
+    ensure_opencode_sidecar()?;
+
+    let cmd = app
+        .shell()
+        .sidecar("opencode")
+        .map_err(|e| format!("sidecar 加载失败：{e}"))?
+        .args(opencode_serve_args(port))
+        .current_dir(&workspace);
+
+    let (mut rx, child) = cmd.spawn().map_err(|e| format!("启动失败：{e}"))?;
+
+    if let Ok(mut guard) = state.ocws_child.lock() {
+        *guard = Some(child);
+    }
+    if let Ok(mut guard) = state.ocws_port.lock() {
+        *guard = Some(port);
+    }
+
+    let url = format!("http://127.0.0.1:{port}");
+
+    let mut ready = false;
+    for _ in 0..30 {
+        if tokio::net::TcpStream::connect(("127.0.0.1", port))
+            .await
+            .is_ok()
+        {
+            ready = true;
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    }
+
+    if !ready {
+        if let Ok(mut guard) = state.ocws_child.lock() {
+            if let Some(child) = guard.take() {
+                let _ = child.kill();
+            }
+        }
+        if let Ok(mut guard) = state.ocws_port.lock() {
+            *guard = None;
+        }
+        return Err("opencode 服务启动超时".into());
+    }
+
+    let log_path = ocserver_log_path();
+    if let Some(parent) = log_path.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+
+    tauri::async_runtime::spawn(async move {
+        use tauri_plugin_shell::process::CommandEvent;
+        let mut log = fs::OpenOptions::new()
+            .create(true).append(true).open(&log_path).ok();
+        loop {
+            match rx.recv().await {
+                Some(CommandEvent::Stdout(bytes)) => {
+                    if let Some(ref mut f) = log {
+                        let _ = writeln!(f, "[serve] {}", String::from_utf8_lossy(&bytes));
+                    }
+                }
+                Some(CommandEvent::Stderr(bytes)) => {
+                    if let Some(ref mut f) = log {
+                        let _ = writeln!(f, "[serve:err] {}", String::from_utf8_lossy(&bytes));
+                    }
+                }
+                Some(CommandEvent::Terminated(_)) | Some(CommandEvent::Error(_)) | None => break,
+                _ => {}
+            }
+        }
+        if let Ok(mut guard) = app.state::<AppState>().ocws_child.lock() {
+            *guard = None;
+        }
+        if let Ok(mut guard) = app.state::<AppState>().ocws_port.lock() {
+            *guard = None;
+        }
+    });
+
+    Ok(url)
+}
+
 pub fn run() {
     let fallback_root = default_root();
     tauri::Builder::default()
@@ -1821,6 +1965,8 @@ pub fn run() {
             share_port: Arc::new(Mutex::new(None)),
             ocserver_child: Arc::new(Mutex::new(None)),
             ocserver_port: Arc::new(Mutex::new(None)),
+            ocws_child: Arc::new(Mutex::new(None)),
+            ocws_port: Arc::new(Mutex::new(None)),
         })
         .invoke_handler(tauri::generate_handler![
             choose_root,
@@ -1835,7 +1981,8 @@ pub fn run() {
             start_ocserver,
             stop_ocserver,
             ocserver_version,
-            ocserver_models
+            ocserver_models,
+            execute_opencode_serve
         ])
         .run(tauri::generate_context!())
         .expect("error while running oFinder");
