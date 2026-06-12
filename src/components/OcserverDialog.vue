@@ -10,9 +10,16 @@
     <div class="oc-dialog">
       <!-- server info bar -->
       <div class="oc-info-bar">
-        <span v-if="store.ocserverVersion" class="oc-badge">v{{ store.ocserverVersion }}</span>
+        <span v-if="store.ocserverVersion" class="oc-badge"
+          >v{{ store.ocserverVersion }}</span
+        >
         <span class="oc-badge oc-url">{{ displayUrl }}</span>
-        <el-select v-model="currentModel" size="small" placeholder="选择模型" class="oc-model-select">
+        <el-select
+          v-model="currentModel"
+          size="small"
+          placeholder="选择模型"
+          class="oc-model-select"
+        >
           <el-option
             v-for="m in store.ocserverModels"
             :key="m.name || m"
@@ -20,7 +27,13 @@
             :value="m"
           />
         </el-select>
-        <el-button text size="small" @click="stopServer" :disabled="store.ocserverLoading">停止</el-button>
+        <el-button
+          text
+          size="small"
+          @click="stopServer"
+          :disabled="store.ocserverLoading"
+          >停止</el-button
+        >
       </div>
 
       <!-- chat messages -->
@@ -28,17 +41,35 @@
         <div v-if="!messages.length" class="oc-empty">
           输入消息开始与 opencode 对话
         </div>
+
         <div
           v-for="(msg, i) in messages"
           :key="i"
           :class="['oc-msg', msg.role]"
         >
-          <div class="oc-msg-label">{{ msg.role === 'user' ? '你' : 'AI' }}</div>
-          <div class="oc-msg-content">{{ msg.text }}</div>
+          <div class="oc-msg-label">
+            {{ msg.role === "user" ? "你" : "AI" }}
+          </div>
+          <div class="oc-msg-body">
+            <!-- <div v-if="msg.reasoning" class="oc-thinking">
+              <div class="oc-thinking-label">思考过程</div>
+              <div class="oc-thinking-content">{{ msg.reasoning }}</div>
+            </div> -->
+            <div class="oc-msg-content">{{ msg.text }}</div>
+          </div>
         </div>
-        <div v-if="streamingText" class="oc-msg ai">
-          <div class="oc-msg-label">AI</div>
-          <div class="oc-msg-content oc-streaming">{{ streamingText }}</div>
+
+        <div
+          v-for="(item, i) in windowItems"
+          v-show="showStatus.includes(item.status)"
+          :key="i"
+          class="oc-window-item"
+          :style="{ borderLeftColor: getWindowView(item.status).color }"
+        >
+          <div class="oc-window-item-header">
+            {{ getWindowView(item.status).title }} · {{ item.time }}
+          </div>
+          <div class="oc-window-item-body">{{ item.text }}</div>
         </div>
       </div>
 
@@ -69,105 +100,190 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
-import { useAppStore } from '@/stores/appStore'
-import { useTauri } from '@/composables/useTauri'
-import Opencode from '@/service/opencode'
+import { ref, computed, onMounted, onUnmounted, nextTick } from "vue";
+import { useAppStore } from "@/stores/appStore";
+import { useTauri } from "@/composables/useTauri";
+import Opencode from "@/service/opencode";
 
-const emit = defineEmits(['close'])
-const store = useAppStore()
-const tauri = useTauri()
+const emit = defineEmits(["close"]);
+const store = useAppStore();
+const tauri = useTauri();
 
-const visible = ref(true)
-const messages = ref([])
-const inputText = ref('')
-const sending = ref(false)
-const streamingText = ref('')
-const currentModel = ref(null)
-const messagesRef = ref(null)
+const windowViews = {
+  start: {
+    title: "opencode: sending",
+    color: "#2563eb",
+    defaultText: "正在发送消息给 opencode",
+  },
+  thinking: {
+    title: "opencode: thinking",
+    color: "#7c3aed",
+    defaultText: "正在思考",
+  },
+  text: {
+    title: "opencode: replying",
+    color: "#059669",
+    defaultText: "正在生成回复",
+  },
+  tool: {
+    title: "opencode: running tool",
+    color: "#d97706",
+    defaultText: "正在执行工具",
+  },
+  event: {
+    title: "opencode: event",
+    color: "#475569",
+    defaultText: "收到 opencode 事件",
+  },
+  done: {
+    title: "opencode: done",
+    color: "#16a34a",
+    defaultText: "opencode 执行完成",
+  },
+  error: {
+    title: "opencode: error",
+    color: "#dc2626",
+    defaultText: "opencode 请求失败",
+  },
+};
+
+function getWindowView(status) {
+  return windowViews[status] || windowViews.event;
+}
+
+const visible = ref(true);
+const messages = ref([]);
+const inputText = ref("");
+const sending = ref(false);
+const windowItems = ref([]);
+const currentModel = ref(null);
+const messagesRef = ref(null);
+
+//thinking、tool、text、error、replying,"start", "done", "sending", "event"
+const windowHiddenStatuses = ["event"];
+const showStatus = ["thinking", "replying"];
+
+function pushWindowItem(status, text) {
+  // if (windowHiddenStatuses.has(status)) return;
+  const view = getWindowView(status);
+  const rawText = text || view.defaultText;
+  const time = new Date().toLocaleTimeString();
+  const items = windowItems.value;
+  const last = items[items.length - 1];
+
+  if (last && last.status === status && rawText.includes(last.text)) {
+    last.text = rawText;
+    last.time = time;
+  } else {
+    items.push({ status, text: rawText, time });
+  }
+}
 
 const displayUrl = computed(() => {
-  if (!store.ocserverUrl) return ''
-  return store.ocserverUrl.replace(/^https?:\/\//, '')
-})
+  if (!store.ocserverUrl) return "";
+  return store.ocserverUrl.replace(/^https?:\/\//, "");
+});
 
 function getBaseUrl() {
-  return store.ocserverUrl || 'http://127.0.0.1:4096'
+  return store.ocserverUrl || "http://127.0.0.1:4096";
 }
 
 function scrollToBottom() {
   nextTick(() => {
-    const el = messagesRef.value
-    if (el) el.scrollTop = el.scrollHeight
-  })
+    const el = messagesRef.value;
+    if (el) el.scrollTop = el.scrollHeight;
+  });
 }
 
 async function sendMessage() {
-  const text = inputText.value.trim()
-  if (!text || sending.value) return
+  const text = inputText.value.trim();
+  if (!text || sending.value) return;
 
   if (!Opencode.sessionId) {
     try {
-      await Opencode.new_session(getBaseUrl())
+      await Opencode.new_session(getBaseUrl());
     } catch (e) {
-      console.error('session 创建失败:', e)
-      return
+      console.error("session 创建失败:", e);
+      return;
     }
   }
 
-  inputText.value = ''
-  messages.value.push({ role: 'user', text })
-  sending.value = true
-  streamingText.value = ''
-  scrollToBottom()
+  inputText.value = "";
+  messages.value.push({ role: "user", text });
+  sending.value = true;
+  windowItems.value = [];
+  pushWindowItem("start");
+  scrollToBottom();
+
+  let finalThinking, finalText;
 
   try {
-    await Opencode.send_message(text, {
-      onThinking: (t) => {
-        streamingText.value = t
-        scrollToBottom()
+    await Opencode.send_message(
+      text,
+      {
+        onThinking: (t) => {
+          finalThinking = t;
+          pushWindowItem("thinking", t);
+          scrollToBottom();
+        },
+        onText: (t) => {
+          finalText = t;
+          pushWindowItem("text", t);
+          scrollToBottom();
+        },
+        onEvent: (payload) => {
+          if (
+            payload.type !== "message.part.updated" &&
+            payload.type !== "message.part.delta"
+          ) {
+            pushWindowItem("event", JSON.stringify(payload));
+            scrollToBottom();
+          }
+        },
       },
-      onText: (t) => {
-        streamingText.value = t
-        scrollToBottom()
-      },
-      onEvent: () => {},
-    }, getBaseUrl(), currentModel.value)
+      getBaseUrl(),
+      currentModel.value,
+    );
 
-    if (streamingText.value) {
-      messages.value.push({ role: 'ai', text: streamingText.value })
-      streamingText.value = ''
+    pushWindowItem("done");
+
+    if (finalText || finalThinking) {
+      messages.value.push({
+        role: "ai",
+        text: finalText || "",
+        reasoning: finalThinking || "",
+      });
     }
   } catch (e) {
-    messages.value.push({ role: 'ai', text: `错误: ${e.message}` })
+    pushWindowItem("error", e.message);
   } finally {
-    sending.value = false
-    scrollToBottom()
+    sending.value = false;
+    scrollToBottom();
   }
 }
 
 async function stopServer() {
   try {
-    await tauri.stopOcserver()
-    store.ocserverRunning = false
-    store.ocserverUrl = ''
-    store.ocserverVersion = ''
-    store.ocserverModels = []
+    await tauri.stopOcserver();
+    store.ocserverRunning = false;
+    store.ocserverUrl = "";
+    store.ocserverVersion = "";
+    store.ocserverModels = [];
   } catch (e) {
-    console.error('stop error:', e)
+    console.error("stop error:", e);
   }
-  emit('close')
+  emit("close");
 }
 
 function handleClose() {
-  emit('close')
+  emit("close");
 }
 
 onMounted(() => {
   if (store.ocserverModels.length) {
-    currentModel.value = store.ocserverModels[0]
+    currentModel.value = store.ocserverModels[0];
   }
-})
+});
 </script>
 
 <style scoped>
@@ -254,8 +370,63 @@ onMounted(() => {
   background: #67c23a;
 }
 
-.oc-msg-content {
+.oc-msg-body {
   max-width: 75%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.oc-thinking {
+  background: #f5f5f5;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #666;
+  border-left: 3px solid #d0d0d0;
+  margin-bottom: 6px;
+}
+
+.oc-thinking-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #999;
+  margin-bottom: 2px;
+}
+
+.oc-thinking-content {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: monospace;
+  font-size: 12px;
+  color: #888;
+}
+
+.oc-window-item {
+  border-left: 3px solid #d0d0d0;
+  padding: 8px 10px;
+  background: rgba(249, 250, 251, 0.92);
+  border-radius: 6px;
+}
+
+.oc-window-item-header {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 4px;
+}
+
+.oc-window-item-body {
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #374151;
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.oc-msg-content {
   padding: 8px 12px;
   border-radius: 8px;
   font-size: 14px;
@@ -272,15 +443,6 @@ onMounted(() => {
 .oc-msg.ai .oc-msg-content {
   background: #f0f9eb;
   color: #303133;
-}
-
-.oc-streaming::after {
-  content: '▍';
-  animation: blink 0.8s infinite;
-}
-
-@keyframes blink {
-  50% { opacity: 0; }
 }
 
 .oc-input-area {
