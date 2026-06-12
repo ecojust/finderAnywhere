@@ -1,6 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
 import { convertFileSrc } from "@tauri-apps/api/core";
+//@ts-ignore
 import RequestService from "@/service/request";
+//@ts-ignore
 import { resolveModelSettings, setModel } from "@/service/modelSettings";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -66,7 +68,7 @@ export default class Opencode {
           url: `${url}/event`,
           signal: abortController.signal,
           onOpen: markEventReady,
-          onEvent: (event) => {
+          onEvent: (event: any) => {
             Opencode.handleMessageEvent(
               event.data,
               Opencode.sessionId,
@@ -241,7 +243,10 @@ export default class Opencode {
       ...payload,
     });
     if (result instanceof Array) {
-      result = result.map((folderPath: string) => getFileName(folderPath));
+      result = result.map((folderPath: string) =>
+        getFileName(folderPath),
+      ) as string[];
+      //@ts-ignore
       result = result.filter(
         (name: string) => !name.toUpperCase().includes("MACOSX"),
       );
