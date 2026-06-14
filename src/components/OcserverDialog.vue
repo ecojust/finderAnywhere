@@ -19,6 +19,7 @@
           size="small"
           placeholder="选择模型"
           class="oc-model-select"
+          @change="handleModelChange"
         >
           <el-option
             v-for="m in store.ocserverModels"
@@ -51,10 +52,10 @@
             {{ msg.role === "user" ? "你" : "AI" }}
           </div>
           <div class="oc-msg-body">
-            <!-- <div v-if="msg.reasoning" class="oc-thinking">
+            <div v-if="msg.role === 'ai' && msg.reasoning" class="oc-thinking">
               <div class="oc-thinking-label">思考过程</div>
               <div class="oc-thinking-content">{{ msg.reasoning }}</div>
-            </div> -->
+            </div>
             <div class="oc-msg-content">{{ msg.text }}</div>
           </div>
         </div>
@@ -81,7 +82,7 @@
           :rows="3"
           placeholder="输入消息..."
           :disabled="sending"
-          @keydown.ctrl.enter="sendMessage"
+          @keydown.enter="sendMessage"
         />
         <div class="oc-input-actions">
           <span v-if="sending" class="oc-hint">正在处理...</span>
@@ -100,10 +101,11 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, nextTick } from "vue";
+import { ref, computed, onMounted, nextTick } from "vue";
 import { useAppStore } from "@/stores/appStore";
 import { useTauri } from "@/composables/useTauri";
 import Opencode from "@/service/opencode";
+import { setModel } from "@/service/modelSettings";
 
 const emit = defineEmits(["close"]);
 const store = useAppStore();
@@ -188,6 +190,36 @@ function getBaseUrl() {
   return store.ocserverUrl || "http://127.0.0.1:4096";
 }
 
+function getModelKey(model) {
+  if (!model) return "";
+  return typeof model === "string"
+    ? model
+    : model.name || model.modelID || model.id || "";
+}
+
+function getModelParts(model) {
+  const key = getModelKey(model);
+  const idx = key.indexOf("/");
+  if (idx > 0) {
+    return {
+      provider: key.slice(0, idx),
+      model: key.slice(idx + 1),
+    };
+  }
+  return { provider: "", model: key };
+}
+
+async function handleModelChange(model) {
+  if (!model) return;
+  setModel(model);
+  const { provider, model: modelName } = getModelParts(model);
+  try {
+    await tauri.setOcserverModelConfig(provider || "", modelName || "");
+  } catch (e) {
+    console.error("保存模型配置失败:", e);
+  }
+}
+
 function scrollToBottom() {
   nextTick(() => {
     const el = messagesRef.value;
@@ -209,13 +241,21 @@ async function sendMessage() {
   }
 
   inputText.value = "";
+  const userQuestion = text;
   messages.value.push({ role: "user", text });
+  messages.value.push({
+    role: "ai",
+    text: "正在思考...",
+    reasoning: "",
+  });
   sending.value = true;
   windowItems.value = [];
   pushWindowItem("start");
   scrollToBottom();
 
-  let finalThinking, finalText;
+  let finalThinking = "";
+  let finalText = "";
+  let hasShownRealAnswer = false;
 
   try {
     await Opencode.send_message(
@@ -223,11 +263,22 @@ async function sendMessage() {
       {
         onThinking: (t) => {
           finalThinking = t;
-          pushWindowItem("thinking", t);
+          const currentReply = messages.value[messages.value.length - 1];
+          if (currentReply && currentReply.role === "ai") {
+            currentReply.reasoning = t;
+          }
           scrollToBottom();
         },
         onText: (t) => {
+          if (!hasShownRealAnswer && t === userQuestion) {
+            return;
+          }
+          hasShownRealAnswer = true;
           finalText = t;
+          const currentReply = messages.value[messages.value.length - 1];
+          if (currentReply && currentReply.role === "ai") {
+            currentReply.text = t;
+          }
           pushWindowItem("text", t);
           scrollToBottom();
         },
@@ -247,12 +298,10 @@ async function sendMessage() {
 
     pushWindowItem("done");
 
-    if (finalText || finalThinking) {
-      messages.value.push({
-        role: "ai",
-        text: finalText || "",
-        reasoning: finalThinking || "",
-      });
+    const currentReply = messages.value[messages.value.length - 1];
+    if (currentReply && currentReply.role === "ai") {
+      currentReply.text = finalText || currentReply.text || "";
+      currentReply.reasoning = finalThinking || currentReply.reasoning || "";
     }
   } catch (e) {
     pushWindowItem("error", e.message);
@@ -279,9 +328,29 @@ function handleClose() {
   emit("close");
 }
 
-onMounted(() => {
+onMounted(async () => {
+  try {
+    const config = await tauri.appConfig();
+    const savedProvider = config.selectedModelProvider || "";
+    const savedModel = config.selectedModel || "";
+
+    const matched = store.ocserverModels.find((model) => {
+      const key = getModelKey(model);
+      return key === `${savedProvider}/${savedModel}` || key === savedModel;
+    });
+
+    if (matched) {
+      currentModel.value = matched;
+      setModel(matched);
+      return;
+    }
+  } catch (e) {
+    console.error("读取模型配置失败:", e);
+  }
+
   if (store.ocserverModels.length) {
     currentModel.value = store.ocserverModels[0];
+    setModel(store.ocserverModels[0]);
   }
 });
 </script>

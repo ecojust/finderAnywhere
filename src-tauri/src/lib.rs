@@ -85,6 +85,10 @@ struct AppConfig {
     share_port_locked: bool,
     #[serde(default, skip_serializing)]
     locked_share_port: Option<u16>,
+    #[serde(default)]
+    selected_model_provider: Option<String>,
+    #[serde(default)]
+    selected_model: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -1591,11 +1595,22 @@ fn app_config() -> Result<AppConfig, String> {
 
 #[tauri::command]
 fn set_share_port_config(port: Option<u16>, locked: bool) -> Result<AppConfig, String> {
-    let config = AppConfig {
-        share_port: port,
-        share_port_locked: locked,
-        locked_share_port: None,
-    };
+    let mut config = read_app_config();
+    config.share_port = port;
+    config.share_port_locked = locked;
+    config.locked_share_port = None;
+    write_app_config(&config)?;
+    Ok(config)
+}
+
+#[tauri::command]
+fn set_ocserver_model_config(
+    provider: Option<String>,
+    model: Option<String>,
+) -> Result<AppConfig, String> {
+    let mut config = read_app_config();
+    config.selected_model_provider = provider.filter(|value| !value.trim().is_empty());
+    config.selected_model = model.filter(|value| !value.trim().is_empty());
     write_app_config(&config)?;
     Ok(config)
 }
@@ -1685,6 +1700,32 @@ fn ensure_opencode_sidecar() -> Result<(), String> {
     Ok(())
 }
 
+#[cfg(target_os = "windows")]
+fn kill_all_opencode_processes() -> Result<(), String> {
+    let status = StdCommand::new("taskkill")
+        .args(["/F", "/IM", "opencode.exe", "/T"])
+        .status()
+        .map_err(|e| format!("终止 opencode 进程失败：{e}"))?;
+
+    if !status.success() {
+        return Err("终止 opencode 进程失败".into());
+    }
+    Ok(())
+}
+
+#[cfg(not(target_os = "windows"))]
+fn kill_all_opencode_processes() -> Result<(), String> {
+    let status = StdCommand::new("pkill")
+        .args(["-f", "opencode"])
+        .status()
+        .map_err(|e| format!("终止 opencode 进程失败：{e}"))?;
+
+    if !status.success() && status.code() != Some(1) {
+        return Err("终止 opencode 进程失败".into());
+    }
+    Ok(())
+}
+
 #[tauri::command]
 async fn start_ocserver(
     path: String,
@@ -1749,6 +1790,10 @@ async fn start_ocserver(
         return Err("opencode 服务启动超时".into());
     }
 
+    let config_path = PathBuf::from(&path).join("opencode.json");
+    let config_content = r#"{"$schema":"https://opencode.ai/config.json","permission":"allow"}"#;
+    fs::write(&config_path, config_content).map_err(|e| format!("写入 opencode.json 失败：{e}"))?;
+
     // Process-exit watcher
     let log_path = ocserver_log_path();
     if let Some(parent) = log_path.parent() {
@@ -1757,7 +1802,10 @@ async fn start_ocserver(
     tauri::async_runtime::spawn(async move {
         use tauri_plugin_shell::process::CommandEvent;
         let mut log = fs::OpenOptions::new()
-            .create(true).append(true).open(&log_path).ok();
+            .create(true)
+            .append(true)
+            .open(&log_path)
+            .ok();
         loop {
             match rx.recv().await {
                 Some(CommandEvent::Stdout(bytes)) => {
@@ -1794,6 +1842,9 @@ async fn stop_ocserver(state: State<'_, AppState>) -> Result<(), String> {
     if let Some(child) = child {
         child.kill().map_err(|e| format!("停止失败：{e}"))?;
     }
+
+    kill_all_opencode_processes()?;
+
     if let Ok(mut guard) = state.ocserver_port.lock() {
         *guard = None;
     }
@@ -1926,7 +1977,10 @@ async fn execute_opencode_serve(
     tauri::async_runtime::spawn(async move {
         use tauri_plugin_shell::process::CommandEvent;
         let mut log = fs::OpenOptions::new()
-            .create(true).append(true).open(&log_path).ok();
+            .create(true)
+            .append(true)
+            .open(&log_path)
+            .ok();
         loop {
             match rx.recv().await {
                 Some(CommandEvent::Stdout(bytes)) => {
@@ -1978,6 +2032,7 @@ pub fn run() {
             open_external,
             app_config,
             set_share_port_config,
+            set_ocserver_model_config,
             start_ocserver,
             stop_ocserver,
             ocserver_version,
